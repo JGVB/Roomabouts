@@ -151,15 +151,19 @@ class Phase2CardIntegrationTests(unittest.TestCase):
             "while (this._trailEntries.size >= MAX_DOM_TRAILS)",
             "this._trailEntries.keys().next().value",
             "this._removeTrail(oldestTrail)",
-            "this._trailEntries.set(trail, timerId)",
+            "this._trailEntries.set(trail, { timerId, ownerId })",
+            "_removeTrailsForOwner(ownerId)",
+            "if (entry.ownerId === ownerId) this._removeTrail(trail)",
+            "_removeStaleDomEntries(currentActiveIds)",
+            "if (id.startsWith('fused_')) this._removeTrailsForOwner(id)",
             "this._clearTrails()",
-            "this._trackTrail(trail)",
+            "this._trackTrail(trail, dotId)",
         ):
             with self.subTest(literal=literal):
                 self.assertIn(literal, self.renderer)
         self.assertNotIn("_trailTimers", self.renderer)
         self.assertLess(
-            self.renderer.index("this._trackTrail(trail)"),
+            self.renderer.index("this._trackTrail(trail, dotId)"),
             self.renderer.index("dotsLayer.insertBefore(trail, dot)"),
         )
 

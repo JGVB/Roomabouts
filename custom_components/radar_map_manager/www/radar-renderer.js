@@ -3,9 +3,11 @@ import { TargetFilter } from './radar-math.js?v=1.4.0';
 const MAX_DOM_TRAILS = 96;
 
 export class RadarRenderer {
-    constructor(math, root) {
+    constructor(math, root, timers = {}) {
         this.math = math;
         this.root = root;
+        this._setTimeout = timers.setTimeout || ((callback, delay) => setTimeout(callback, delay));
+        this._clearTimeout = timers.clearTimeout || ((timerId) => clearTimeout(timerId));
         this.canvas = null;
         this.ctx = null;
         this.animFrameId = null;
@@ -19,31 +21,44 @@ export class RadarRenderer {
     }
     _removeTrail(trail) {
         if (!trail) return;
-        const timerId = this._trailEntries.get(trail);
-        if (timerId !== undefined) clearTimeout(timerId);
+        const entry = this._trailEntries.get(trail);
+        if (entry) this._clearTimeout(entry.timerId);
         this._trailEntries.delete(trail);
         if (trail.parentNode) trail.parentNode.removeChild(trail);
+    }
+    _removeTrailsForOwner(ownerId) {
+        for (const [trail, entry] of [...this._trailEntries.entries()]) {
+            if (entry.ownerId === ownerId) this._removeTrail(trail);
+        }
     }
     _clearTrails() {
         for (const trail of [...this._trailEntries.keys()]) this._removeTrail(trail);
     }
-    _trackTrail(trail) {
+    _trackTrail(trail, ownerId) {
         while (this._trailEntries.size >= MAX_DOM_TRAILS) {
             const oldestTrail = this._trailEntries.keys().next().value;
             this._removeTrail(oldestTrail);
         }
-        const timerId = setTimeout(() => this._removeTrail(trail), 1200);
-        this._trailEntries.set(trail, timerId);
+        const timerId = this._setTimeout(() => this._removeTrail(trail), 1200);
+        this._trailEntries.set(trail, { timerId, ownerId });
+    }
+    _removeDomCacheEntry(id) {
+        if (id.startsWith('fused_')) this._removeTrailsForOwner(id);
+        const element = this._domCache[id];
+        if (element?.parentNode) element.parentNode.removeChild(element);
+        delete this._domCache[id];
+    }
+    _removeStaleDomEntries(currentActiveIds) {
+        for (const id of Object.keys(this._domCache)) {
+            if (!currentActiveIds.has(id)) this._removeDomCacheEntry(id);
+        }
     }
     clearRuntime() {
         if (this.animFrameId !== null) cancelAnimationFrame(this.animFrameId);
         this.animFrameId = null;
         this._clearTrails();
         this.targetFilter.clear();
-        for (const element of Object.values(this._domCache)) {
-            if (element?.parentNode) element.parentNode.removeChild(element);
-        }
-        this._domCache = {};
+        this._removeStaleDomEntries(new Set());
         const dotsLayer = this.root.getElementById('dots-layer');
         if (dotsLayer) dotsLayer.innerHTML = '';
         const svg = this.root.getElementById('svg-canvas');
@@ -928,11 +943,11 @@ export class RadarRenderer {
         const dotsLayer = this.root.getElementById('dots-layer');
         if (isCanvasMode) {
             this._clearTrails();
+            this._removeStaleDomEntries(new Set());
             if (dotsLayer) {
                 dotsLayer.style.display = 'none';
                 if (dotsLayer.firstChild) dotsLayer.innerHTML = '';
             }
-            this._domCache = {};
             this.drawTargetsCanvas(state, config, hass, allRadars);
         } else {
             if (dotsLayer) {
@@ -1011,7 +1026,7 @@ export class RadarRenderer {
                         trail.style.background = col;
                         trail.style.left = prevX + '%';
                         trail.style.top = prevY + '%';
-                        this._trackTrail(trail);
+                        this._trackTrail(trail, dotId);
                         dotsLayer.insertBefore(trail, dot);
                         requestAnimationFrame(() => {
                             requestAnimationFrame(() => {
@@ -1166,15 +1181,7 @@ export class RadarRenderer {
                 }
             });
         }
-        for (let id in this._domCache) {
-            if (!currentActiveIds.has(id)) {
-                let deadDot = this._domCache[id];
-                if (deadDot && deadDot.parentNode) {
-                    deadDot.parentNode.removeChild(deadDot);
-                }
-                delete this._domCache[id];
-            }
-        }
+        this._removeStaleDomEntries(currentActiveIds);
     }
     drawTargetsCanvas(state, config, hass, allRadars) {
         if (!this.targetFilter) return;
