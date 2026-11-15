@@ -190,7 +190,7 @@ export const SYNTHETIC_SCENARIOS = deepFreeze([
     Object.freeze({
         id: 'generation-reset',
         label: 'Generation reset and ID reuse',
-        description: 'A reused inherited identity receives a new opaque track and alias after restart.',
+        description: 'The same opaque track ID is reused with a different alias after a generation restart.',
         privacy: 'synthetic-only',
         frames: Object.freeze([
             snapshot({
@@ -224,7 +224,7 @@ export const SYNTHETIC_SCENARIOS = deepFreeze([
                 logicalTimeMs: 0,
                 resetReason: 'source-restart',
                 tracks: [track({
-                    trackId: 'track-333333333333',
+                    trackId: 'track-222222222222',
                     alias: 'Wayfarer-333333',
                     x: 50,
                     y: 48,
@@ -237,7 +237,7 @@ export const SYNTHETIC_SCENARIOS = deepFreeze([
                 sequence: 1,
                 logicalTimeMs: 600,
                 tracks: [track({
-                    trackId: 'track-333333333333',
+                    trackId: 'track-222222222222',
                     alias: 'Wayfarer-333333',
                     x: 63,
                     y: 40,

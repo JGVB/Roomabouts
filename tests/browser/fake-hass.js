@@ -1,3 +1,5 @@
+import { validateRoomaboutsSnapshot } from '../../custom_components/radar_map_manager/www/roomabouts-presentation.js';
+
 const STREAM_TYPE = 'rmm/stream';
 const MAX_SCENARIOS = 16;
 const MAX_FRAMES = 512;
@@ -44,6 +46,7 @@ function validateScenarios(scenarios) {
         throw new TypeError(`Expected 1-${MAX_SCENARIOS} synthetic scenarios`);
     }
     const ids = new Set();
+    const validated = [];
     for (const scenario of scenarios) {
         if (!scenario || typeof scenario !== 'object' || scenario.privacy !== 'synthetic-only') {
             throw new TypeError('Every fixture scenario must be marked synthetic-only');
@@ -56,8 +59,21 @@ function validateScenarios(scenarios) {
         if (!Array.isArray(scenario.frames) || scenario.frames.length === 0 || scenario.frames.length > MAX_FRAMES) {
             throw new TypeError(`Scenario frames must contain 1-${MAX_FRAMES} snapshots`);
         }
-        for (const snapshot of scenario.frames) validateSnapshotEnvelope(snapshot);
+        const frames = scenario.frames.map((snapshot) => {
+            validateSnapshotEnvelope(snapshot);
+            return validateRoomaboutsSnapshot(snapshot);
+        });
+        validated.push({
+            id: scenario.id,
+            label: typeof scenario.label === 'string' ? scenario.label.slice(0, 96) : scenario.id,
+            description: typeof scenario.description === 'string'
+                ? scenario.description.slice(0, 256)
+                : '',
+            privacy: 'synthetic-only',
+            frames,
+        });
     }
+    return validated;
 }
 
 function createBrowserClock() {
@@ -122,7 +138,7 @@ export class FakeHomeAssistantReplay {
         onStateChange = null,
         onDiagnostic = null,
     }) {
-        validateScenarios(scenarios);
+        const validatedScenarios = validateScenarios(scenarios);
         if (
             !clock
             || typeof clock.now !== 'function'
@@ -131,8 +147,8 @@ export class FakeHomeAssistantReplay {
         ) {
             throw new TypeError('Replay clock must provide now/setTimeout/clearTimeout');
         }
-        this._scenarios = new Map(scenarios.map((scenario) => [scenario.id, scenario]));
-        this._scenario = scenarios[0];
+        this._scenarios = new Map(validatedScenarios.map((scenario) => [scenario.id, scenario]));
+        this._scenario = validatedScenarios[0];
         this._clock = clock;
         this._onStateChange = onStateChange;
         this._onDiagnostic = onDiagnostic;
@@ -388,4 +404,14 @@ export class FakeHomeAssistantReplay {
 
 export function createFakeHomeAssistantReplay(options) {
     return new FakeHomeAssistantReplay(options);
+}
+
+export function disconnectReplayAndNotifyCard(card, replay) {
+    if (!card || typeof card !== 'object') throw new TypeError('Card instance is required');
+    if (!replay || typeof replay.disconnect !== 'function' || !replay.hass) {
+        throw new TypeError('Replay instance is required');
+    }
+    replay.disconnect();
+    card.hass = replay.hass;
+    return replay.state;
 }

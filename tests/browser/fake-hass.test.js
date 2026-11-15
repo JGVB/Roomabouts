@@ -1,4 +1,9 @@
-import { FakeHomeAssistantReplay, ManualReplayClock } from './fake-hass.js';
+import { validateRoomaboutsSnapshot } from '../../custom_components/radar_map_manager/www/roomabouts-presentation.js';
+import {
+    disconnectReplayAndNotifyCard,
+    FakeHomeAssistantReplay,
+    ManualReplayClock,
+} from './fake-hass.js';
 import { SYNTHETIC_SCENARIOS } from './fixtures/synthetic-scenarios.js';
 
 function assert(condition, message) {
@@ -56,6 +61,17 @@ Deno.test('synthetic scenarios contain no credentials, network destinations, or 
         }
     }
     assert(SYNTHETIC_SCENARIOS.every((scenario) => scenario.privacy === 'synthetic-only'), 'privacy marker');
+    for (const scenario of SYNTHETIC_SCENARIOS) {
+        for (const frame of scenario.frames) {
+            const validated = validateRoomaboutsSnapshot(frame);
+            assertEquals(validated.schemaVersion, 1, `${scenario.id} production validation`);
+        }
+    }
+    const resetScenario = SYNTHETIC_SCENARIOS.find((scenario) => scenario.id === 'generation-reset');
+    const generationATrack = resetScenario.frames[1].tracks[0];
+    const generationBTrack = resetScenario.frames[2].tracks[0];
+    assertEquals(generationBTrack.trackId, generationATrack.trackId, 'opaque track ID is reused');
+    assert(generationBTrack.anonymousAlias !== generationATrack.anonymousAlias, 'alias changes at reset');
 });
 
 Deno.test('rmm stream subscription immediately emits a detached current snapshot and tears down', async () => {
@@ -139,9 +155,18 @@ Deno.test('disconnect, reconnect, stepping, and invalid control input fail deter
     replay.step();
     assertEquals(replay.state.frameIndex, 1, 'step advances one frame');
 
-    replay.disconnect();
+    const assignedHass = [];
+    const card = {
+        set hass(value) {
+            assignedHass.push(value);
+        },
+    };
+    const disconnectedState = disconnectReplayAndNotifyCard(card, replay);
     assert(!firstConnection.connected, 'disconnect updates connection');
     assertEquals(replay.state.subscriberCount, 0, 'disconnect clears subscribers');
+    assertEquals(disconnectedState.connected, false, 'disconnect helper returns cleared state');
+    assertEquals(assignedHass.length, 1, 'disconnect immediately notifies card');
+    assert(assignedHass[0] === replay.hass, 'card receives disconnected Hass object');
     const nextHass = replay.reconnect();
     assert(nextHass.connection !== firstConnection, 'reconnect replaces connection object');
     assert(nextHass.connection.connected, 'replacement is connected');

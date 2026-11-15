@@ -72,7 +72,7 @@ Browser zoom must remain at 100%. Record browser name and exact version in the e
 - **Speed** accepts `0.25×`, `0.5×`, `1×`, `2×`, or `4×`. It changes scheduling only; snapshot logical times remain unchanged.
 - **Play/Pause** schedules frames from their semantic logical-time deltas using the injected clock abstraction.
 - **Step forward** advances one frame while paused. Reverse stepping is deliberately unavailable; arbitrary backward movement uses connection-resetting seek.
-- **Disconnect** pauses playback, marks the fake connection unavailable, and removes all subscribers.
+- **Disconnect** pauses playback, marks the fake connection unavailable, removes all subscribers, and immediately reassigns `card.hass` so the card clears presentation state without waiting for its heartbeat.
 - **Reconnect** supplies the card with a new connection object; the card must clear stale presentation state and subscribe once.
 - **Remount card** removes the real custom element, waits for `disconnectedCallback`, verifies zero old subscribers, and creates a new card.
 
@@ -98,7 +98,7 @@ Open the browser console before starting and preserve a text copy of console out
 
 3. `Generation reset and ID reuse`
    - The first two frames retain one alias within generation A.
-   - The generation B reset clears all generation-A aliases and trail samples before displaying the new opaque track and alias.
+   - Generation B deliberately reuses the exact same opaque track ID. The reset clears all generation-A aliases and trail samples before displaying that reused ID with a different alias.
    - No inherited target or source slot is displayed as a person identity.
 
 4. `Three anonymous tracks`

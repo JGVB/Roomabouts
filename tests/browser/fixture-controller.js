@@ -1,5 +1,8 @@
 import '../../custom_components/radar_map_manager/www/radar-map-card.js';
-import { createFakeHomeAssistantReplay } from './fake-hass.js';
+import {
+    createFakeHomeAssistantReplay,
+    disconnectReplayAndNotifyCard,
+} from './fake-hass.js';
 import { SYNTHETIC_SCENARIOS } from './fixtures/synthetic-scenarios.js';
 
 const elements = {
@@ -135,7 +138,9 @@ elements.scenario.addEventListener('change', () => runControl(() => {
     card.hass = nextHass;
 }));
 
-elements.disconnect.addEventListener('click', () => runControl(() => replay.disconnect()));
+elements.disconnect.addEventListener('click', () => runControl(() => {
+    disconnectReplayAndNotifyCard(card, replay);
+}));
 
 elements.reconnect.addEventListener('click', () => runControl(() => {
     card.hass = replay.reconnect();
