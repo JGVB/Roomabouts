@@ -9,6 +9,32 @@ STORAGE_KEY = DOMAIN
 _MISSING_MIGRATION_DATA = object()
 
 
+def _validate_stored_configuration_shape(value: object) -> None:
+    """Reject present malformed configuration containers before normalization."""
+
+    if not isinstance(value, Mapping):
+        raise TypeError("Roomabouts stored configuration must be an object")
+
+    if "maps" in value:
+        maps = value["maps"]
+        if not isinstance(maps, Mapping):
+            raise TypeError("Roomabouts stored maps must be an object")
+        for map_data in maps.values():
+            if not isinstance(map_data, Mapping):
+                raise TypeError("Each Roomabouts stored map must be an object")
+            for field in ("zones", "config"):
+                if field in map_data and not isinstance(map_data[field], Mapping):
+                    raise TypeError(f"Roomabouts stored map {field} must be an object")
+
+    if "radars" in value:
+        radars = value["radars"]
+        if not isinstance(radars, Mapping):
+            raise TypeError("Roomabouts stored radars must be an object")
+        for radar_data in radars.values():
+            if not isinstance(radar_data, Mapping):
+                raise TypeError("Each Roomabouts stored radar must be an object")
+
+
 class RoomaboutsStore(Store):
     """Home Assistant Store with an explicit v1-to-v2 privacy migration."""
 
@@ -24,8 +50,7 @@ class RoomaboutsStore(Store):
             old_data = old_minor_version
         if old_major_version not in (1, STORAGE_VERSION):
             raise NotImplementedError
-        if not isinstance(old_data, Mapping):
-            raise TypeError("Roomabouts stored configuration must be an object")
+        _validate_stored_configuration_shape(old_data)
         clean, _removed = migrate_storage(old_data)
         return clean
 
@@ -91,10 +116,10 @@ class RadarCoordinator:
             self.data = self._get_empty_data()
             await self.async_save()
             return
-        if not isinstance(raw_data, Mapping):
-            # A present but malformed store is not a fresh install.  Refuse to
-            # overwrite it so the documented backup/rollback path remains usable.
-            raise TypeError("Roomabouts stored configuration must be an object")
+        # A present but malformed store is not a fresh install.  Validate every
+        # persistent container before migration/default normalization so corrupt
+        # data is preserved for the documented backup/rollback path.
+        _validate_stored_configuration_shape(raw_data)
         self.data, removed_paths = migrate_storage(raw_data)
         if "maps" not in self.data: self.data["maps"] = {}
         if "default" not in self.data["maps"]:

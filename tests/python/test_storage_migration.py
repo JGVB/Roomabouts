@@ -85,6 +85,22 @@ class StorageMigrationTests(unittest.TestCase):
             },
         }
 
+    def malformed_nested_stores(self):
+        return {
+            "maps container": {"version": 1, "maps": []},
+            "radars container": {"version": 1, "radars": []},
+            "map entry": {"version": 1, "maps": {"default": []}},
+            "map zones": {
+                "version": 1,
+                "maps": {"default": {"zones": []}},
+            },
+            "map config": {
+                "version": 1,
+                "maps": {"default": {"config": []}},
+            },
+            "radar entry": {"version": 1, "radars": {"radar": []}},
+        }
+
     def test_v1_to_v2_strips_runtime_coordinates_and_credentials(self):
         original = self.legacy_store()
         untouched = deepcopy(original)
@@ -171,6 +187,10 @@ class StorageMigrationTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             asyncio.run(store._async_migrate_func(1, ["legacy-two-argument-call"]))
 
+        for label, corrupt in self.malformed_nested_stores().items():
+            with self.subTest(label=label), self.assertRaises(TypeError):
+                asyncio.run(store._async_migrate_func(1, 0, corrupt))
+
     def test_coordinator_only_initializes_none_and_never_overwrites_corrupt_store(self):
         coordinator_module = load_coordinator_module()
 
@@ -199,6 +219,40 @@ class StorageMigrationTests(unittest.TestCase):
                 with self.assertRaises(TypeError):
                     asyncio.run(instance.async_load())
                 self.assertEqual(store.saved, [])
+
+        for label, corrupt in self.malformed_nested_stores().items():
+            with self.subTest(label=label):
+                instance = coordinator_module.RadarCoordinator(None)
+                store = LoadStore(corrupt)
+                instance._store = store
+                with self.assertRaises(TypeError):
+                    asyncio.run(instance.async_load())
+                self.assertEqual(store.saved, [])
+
+    def test_coordinator_still_defaults_missing_optional_containers_and_fields(self):
+        coordinator_module = load_coordinator_module()
+
+        class LoadStore:
+            def __init__(self):
+                self.saved = []
+
+            async def async_load(self):
+                return {"version": 2, "maps": {"upstairs": {}}}
+
+            async def async_save(self, value):
+                self.saved.append(deepcopy(value))
+
+        instance = coordinator_module.RadarCoordinator(None)
+        store = LoadStore()
+        instance._store = store
+
+        asyncio.run(instance.async_load())
+
+        self.assertIn("default", instance.data["maps"])
+        self.assertIn("zones", instance.data["maps"]["upstairs"])
+        self.assertIn("config", instance.data["maps"]["upstairs"])
+        self.assertEqual(instance.data["radars"], {})
+        self.assertEqual(len(store.saved), 1)
 
     def test_coordinator_save_sanitizes_and_new_radar_has_no_exclusive_auth_state(self):
         coordinator_module = load_coordinator_module()
