@@ -81,6 +81,8 @@ class ReleaseContractTests(unittest.TestCase):
             text = workflow.read_text(encoding="utf-8")
             with self.subTest(workflow=workflow.name):
                 self.assertRegex(text, r"(?m)^permissions:\n  contents: read(?:\n|$)")
+                self.assertIn("runs-on: ubuntu-24.04", text)
+                self.assertNotIn("runs-on: ubuntu-latest", text)
                 actions = [match.group("action") for match in ACTION_USE.finditer(text)]
                 self.assertGreater(len(actions), 0)
                 for action in actions:
