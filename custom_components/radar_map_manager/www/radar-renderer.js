@@ -1,4 +1,4 @@
-import { TargetFilter } from './radar-math.js?v=1.3.12';
+import { TargetFilter } from './radar-math.js?v=1.4.0';
 export class RadarRenderer {
     constructor(math, root) {
         this.math = math;
@@ -9,11 +9,44 @@ export class RadarRenderer {
         this.currentConfig = null;
         this._isCanvasCleared = false;
         this._domCache = {};
-        this.targetFilter = new TargetFilter(); 
+        this._trailTimers = new Set();
+        this._resizeHandler = null;
+        this._ro = null;
+        this.targetFilter = new TargetFilter();
+    }
+    clearRuntime() {
+        if (this.animFrameId !== null) cancelAnimationFrame(this.animFrameId);
+        this.animFrameId = null;
+        for (const timerId of this._trailTimers) clearTimeout(timerId);
+        this._trailTimers.clear();
+        this.targetFilter.clear();
+        for (const element of Object.values(this._domCache)) {
+            if (element?.parentNode) element.parentNode.removeChild(element);
+        }
+        this._domCache = {};
+        const dotsLayer = this.root.getElementById('dots-layer');
+        if (dotsLayer) dotsLayer.innerHTML = '';
+        const svg = this.root.getElementById('svg-canvas');
+        if (svg) svg.innerHTML = '';
+        if (this.ctx && this.canvas) {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+        this._isCanvasCleared = true;
+        this.currentState = null;
+        this.currentHass = null;
+    }
+    destroy() {
+        this.clearRuntime();
+        if (this._ro) this._ro.disconnect();
+        this._ro = null;
+        if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
+        this._resizeHandler = null;
+        this.canvas = null;
+        this.ctx = null;
     }
     wakeRenderLoop() {
         if (!this.canvas || !this.ctx) return;
-        if (!this.animFrameId) {
+        if (this.animFrameId === null) {
             this.animFrameId = requestAnimationFrame(() => this.renderLoop());
         }
     }
@@ -46,6 +79,7 @@ export class RadarRenderer {
                 this._ro = new ResizeObserver(() => updateCanvasSize());
                 this._ro.observe(this.canvas.parentElement);
             }
+            this._resizeHandler = updateCanvasSize;
             window.addEventListener('resize', updateCanvasSize);
             updateCanvasSize(); 
         }
@@ -128,7 +162,7 @@ export class RadarRenderer {
             for (let tIdx = 0; tIdx < activeTargets.length; tIdx++) {
                 const track = activeTargets[tIdx];
                 const meta = track.metadata || {};
-                if (meta.isHold || meta.isHibernating) continue;
+                if (!meta.emitFootprint) continue;
                 if (!track.history || track.history.length <= 1) continue;
                 const trailCol = meta.color || fusedColor;
                 for (let hIdx = 0; hIdx < track.history.length - 1; hIdx++) {
@@ -255,7 +289,7 @@ export class RadarRenderer {
             this.ctx.stroke();
             this.ctx.setLineDash([]);
             this.ctx.restore();
-            if (showHeading && !isHold && !isHibernating) {
+            if (showHeading && meta.emitFootprint) {
                 const speed = Math.hypot(track.vx, track.vy);
                 if (speed > 0.18) {
                     const angle = Math.atan2(track.vy * scaleY, track.vx * scaleX);
@@ -281,8 +315,10 @@ export class RadarRenderer {
                     this.ctx.restore();
                 }
             }
-            const shouldShowLabel = isLayoutMode || showLabels || meta.label !== undefined;
-            const labelText = meta.label !== undefined ? String(meta.label) : '';
+            const labelText = meta.anonymousAlias !== undefined
+                ? String(meta.anonymousAlias)
+                : (meta.label !== undefined ? String(meta.label) : '');
+            const shouldShowLabel = (isLayoutMode || showLabels) && labelText;
             if (shouldShowLabel && labelText) {
                 this.ctx.save();
                 this.ctx.globalAlpha = track.alpha;
@@ -336,7 +372,8 @@ export class RadarRenderer {
                 const hText = (meta.abs_height !== undefined && meta.abs_height !== null)
                     ? `${Number(meta.abs_height).toFixed(2)}m`
                     : '';
-                const badgeText = isFallen ? `🚨 跌倒 ${hText}` : `⚠️ 疑似 ${hText}`;
+                const alias = meta.anonymousAlias || '';
+                const badgeText = isFallen ? `🚨 ${alias} 跌倒 ${hText}` : `⚠️ ${alias} 疑似 ${hText}`;
                 this.ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
                 const textMetrics = this.ctx.measureText(badgeText);
                 const textWidth = textMetrics.width;
@@ -375,25 +412,37 @@ export class RadarRenderer {
             if (t.x === undefined || t.y === undefined) return;
             const key = `fused_${t.id}`;
             activeKeys.add(key);
-            const isHold = t.sources && t.sources.includes("hold");
-            const isHibernating = t.sources && t.sources.includes("hibernating");
-            const isUnverified = t.sources && t.sources.includes("unverified");
-            const label = (t.id ? String(t.id).replace('target_', '') : '');
+            const semantics = this._fusedSemantics(t);
             this.targetFilter.update(key, parseFloat(t.x), parseFloat(t.y), {
-                id: t.id,
-                sources: t.sources,
+                lifecycle: t.lifecycle,
+                positionBasis: t.positionBasis,
+                anonymousAlias: t.anonymousAlias,
+                emitFootprint: semantics.emitFootprint,
                 posture: t.posture,
                 abs_height: t.abs_height,
                 fall_duration: t.fall_duration,
-                isHold,
-                isHibernating,
-                isUnverified,
+                isHold: semantics.isHold,
+                isHibernating: semantics.isHibernating,
+                isUnverified: semantics.isUnverified,
                 color: fusedColor,
-                label: label,
                 type: 'fused'
             });
         });
         this.targetFilter.prune(activeKeys);
+    }
+    _fusedSemantics(target) {
+        const emitFootprint = target.emitFootprint === true
+            && target.lifecycle === 'confirmed'
+            && target.positionBasis === 'observed';
+        return {
+            emitFootprint,
+            isHold: target.lifecycle === 'coasting'
+                || target.positionBasis === 'held'
+                || target.positionBasis === 'interpolated',
+            isHibernating: target.lifecycle === 'fading'
+                || target.positionBasis === 'last-seen',
+            isUnverified: target.lifecycle === 'tentative',
+        };
     }
     getRadarConfig(state, rName, hass) {
         const getVal = (key, def) => {
@@ -917,15 +966,18 @@ export class RadarRenderer {
                 dot.style.width = `${targetRadius * 2}px`;
                 dot.style.height = `${targetRadius * 2}px`;
                 dot.style.transition = transitionStyle;
-                const isHold = t.sources && t.sources.includes("hold");
-                const isHibernating = t.sources && t.sources.includes("hibernating");
-                const isUnverified = t.sources && t.sources.includes("unverified");
+                const semantics = this._fusedSemantics(t);
+                const { emitFootprint, isHold, isHibernating, isUnverified } = semantics;
                 const isFallen = (t.posture === 'fallen');
                 const isSuspectedFall = (t.posture === 'suspected_fall');
                 let col = fusedColor;
                 if (isFallen) col = '#FF2D55';
                 else if (isSuspectedFall) col = '#FF9800';
-                if (showTrails && !isHold && !isHibernating && dot.dataset.lastTx !== undefined && dot.dataset.lastTy !== undefined) {
+                if (!emitFootprint) {
+                    delete dot.dataset.lastTx;
+                    delete dot.dataset.lastTy;
+                }
+                if (showTrails && emitFootprint && dot.dataset.lastTx !== undefined && dot.dataset.lastTy !== undefined) {
                     const prevX = parseFloat(dot.dataset.lastTx);
                     const prevY = parseFloat(dot.dataset.lastTy);
                     const dx = t.x - prevX;
@@ -945,13 +997,15 @@ export class RadarRenderer {
                                 trail.style.transform = 'translate(-50%, -50%) scale(0.2)';
                             });
                         });
-                        setTimeout(() => {
+                        const trailTimer = setTimeout(() => {
+                            this._trailTimers.delete(trailTimer);
                             if (trail.parentNode) trail.parentNode.removeChild(trail);
                         }, 1200);
+                        this._trailTimers.add(trailTimer);
                     }
                 }
                 const arrowId = `arrow_${dotId}`;
-                if (showHeading && !isHold && !isHibernating) {
+                if (showHeading && emitFootprint) {
                     currentActiveIds.add(arrowId);
                     let arrow = this._domCache[arrowId];
                     const wingAngle = Math.PI / 3; 
@@ -1028,13 +1082,16 @@ export class RadarRenderer {
                     badge.style.left = t.x + '%';
                     badge.style.top = `calc(${t.y}% - ${targetRadius + 4}px)`;
                     const hText = (t.abs_height !== undefined && t.abs_height !== null) ? `${Number(t.abs_height).toFixed(2)}m` : '';
-                    badge.innerText = isFallen ? `🚨 跌倒 ${hText}` : `⚠️ 疑似 ${hText}`;
+                    const alias = t.anonymousAlias || '';
+                    badge.innerText = isFallen ? `🚨 ${alias} 跌倒 ${hText}` : `⚠️ ${alias} 疑似 ${hText}`;
                     badge.style.background = isFallen ? 'rgba(230, 20, 50, 0.92)' : 'rgba(235, 140, 0, 0.92)';
                     badge.style.boxShadow = isFallen ? '0 0 8px rgba(255, 0, 50, 0.6)' : '0 0 8px rgba(255, 150, 0, 0.6)';
                     badge.style.display = 'block';
                 }
-                dot.dataset.lastTx = t.x;
-                dot.dataset.lastTy = t.y;
+                if (emitFootprint) {
+                    dot.dataset.lastTx = t.x;
+                    dot.dataset.lastTy = t.y;
+                }
                 if (isHold) {
                     dot.style.background = 'transparent';
                     dot.style.border = `2px dashed ${col}`;
@@ -1068,9 +1125,13 @@ export class RadarRenderer {
                 }
                 dot.style.left = t.x + '%';
                 dot.style.top = t.y + '%';
-                const label = showLabels ? (t.id ? String(t.id).replace('target_', '') : '') : '';
+                const label = showLabels ? (t.anonymousAlias || '') : '';
                 dot.innerText = label;
-                if (showLabels) dot.title = `Fused ID: ${t.id}\nSources: ${t.sources || ''}\nPosture: ${t.posture || 'normal'}`;
+                if (showLabels && label) {
+                    dot.title = `${label}\nLifecycle: ${t.lifecycle}\nPosition: ${t.positionBasis}\nPosture: ${t.posture || 'unknown'}`;
+                } else {
+                    dot.removeAttribute('title');
+                }
             });
         } else if (state.editing && state.editMode === 'layout') {
             const defColors = ['#00FF00', '#FF0000', '#00FFFF', '#FF00FF', '#FFFF00', '#FFA500'];
@@ -1110,21 +1171,19 @@ export class RadarRenderer {
                 if (t.x === undefined || t.y === undefined) return;
                 const dotId = `fused_${t.id}`;
                 currentActiveIds.add(dotId);
-                const isHold = t.sources && t.sources.includes("hold");
-                const isHibernating = t.sources && t.sources.includes("hibernating");
-                const isUnverified = t.sources && t.sources.includes("unverified");
-                const label = showLabels ? (t.id ? String(t.id).replace('target_', '') : '') : '';
+                const semantics = this._fusedSemantics(t);
                 this.targetFilter.update(dotId, parseFloat(t.x), parseFloat(t.y), {
-                    id: t.id,
-                    sources: t.sources,
+                    lifecycle: t.lifecycle,
+                    positionBasis: t.positionBasis,
+                    anonymousAlias: t.anonymousAlias,
+                    emitFootprint: semantics.emitFootprint,
                     posture: t.posture,
                     abs_height: t.abs_height,
                     fall_duration: t.fall_duration,
-                    isHold: isHold,
-                    isHibernating: isHibernating,
-                    isUnverified: isUnverified,
+                    isHold: semantics.isHold,
+                    isHibernating: semantics.isHibernating,
+                    isUnverified: semantics.isUnverified,
                     color: fusedColor,
-                    label: label,
                     type: 'fused'
                 });
             });

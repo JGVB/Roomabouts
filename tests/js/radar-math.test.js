@@ -164,3 +164,91 @@ Deno.test('TargetFilter uses its injected clock deterministically', () => {
     assertDeepEquals(firstRun[2], { retainedCount: 1 }, 'active-key pruning');
     assertDeepEquals(firstRun[3], { prunedCount: 0 }, 'injected prune clock');
 });
+
+const observedMetadata = Object.freeze({
+    lifecycle: 'confirmed',
+    positionBasis: 'observed',
+    emitFootprint: true,
+});
+
+Deno.test('TargetFilter records history only for confirmed observed positions', () => {
+    let now = 1000;
+    const filter = new TargetFilter(() => now);
+
+    const tentative = filter.update('tentative', 10, 20, {
+        lifecycle: 'tentative',
+        positionBasis: 'observed',
+        emitFootprint: true,
+    });
+    const held = filter.update('held', 30, 40, {
+        lifecycle: 'coasting',
+        positionBasis: 'held',
+        emitFootprint: true,
+    });
+    const fading = filter.update('fading', 50, 60, {
+        lifecycle: 'fading',
+        positionBasis: 'last-seen',
+        emitFootprint: true,
+    });
+    const observed = filter.update('observed', 70, 80, observedMetadata);
+
+    assertDeepEquals(tentative.history, [], 'tentative history is empty');
+    assertDeepEquals(held.history, [], 'held history is empty');
+    assertDeepEquals(fading.history, [], 'last-seen history is empty');
+    assertDeepEquals(
+        observed.history,
+        [{ x: 70, y: 80, time: 1000 }],
+        'confirmed observed history starts at the observation',
+    );
+
+    now = 1040;
+    filter.step();
+    assertDeepEquals(tentative.history, [], 'tentative step cannot add history');
+    assertDeepEquals(held.history, [], 'held step cannot add history');
+    assertDeepEquals(fading.history, [], 'fading step cannot add history');
+});
+
+Deno.test('TargetFilter clears non-emitting anchors and does not bridge re-observation', () => {
+    let now = 2000;
+    const filter = new TargetFilter(() => now);
+
+    filter.update('track', 1, 1, observedMetadata);
+    now = 2100;
+    filter.update('track', 2, 2, observedMetadata);
+    now = 2116;
+    filter.step();
+    assert(filter.tracks.get('track').history.length > 1, 'observed movement creates history');
+
+    now = 2200;
+    filter.update('track', 3, 3, {
+        lifecycle: 'coasting',
+        positionBasis: 'held',
+        emitFootprint: false,
+    });
+    assertDeepEquals(filter.tracks.get('track').history, [], 'held state clears the trail anchor');
+
+    now = 2300;
+    filter.update('track', 90, 90, observedMetadata);
+    const reobserved = filter.tracks.get('track');
+    assertDeepEquals(
+        reobserved.history,
+        [{ x: 90, y: 90, time: 2300 }],
+        're-observation starts a new trail at the new position',
+    );
+    assertDeepEquals(
+        { x: reobserved.x, y: reobserved.y, vx: reobserved.vx, vy: reobserved.vy },
+        { x: 90, y: 90, vx: 0, vy: 0 },
+        're-observation cannot interpolate from the stale anchor',
+    );
+});
+
+Deno.test('TargetFilter clear resets track and frame clock state', () => {
+    let now = 3000;
+    const filter = new TargetFilter(() => now);
+    filter.update('track', 1, 1, observedMetadata);
+    now = 3500;
+    filter.clear();
+
+    assert(filter.tracks.size === 0, 'clear removes tracks');
+    assert(filter.lastFrameTime === 3500, 'clear resets the frame clock');
+});

@@ -89,9 +89,9 @@ const UI_I18N = {
     "lbl_track": { zh: "追踪", en: "Track" },
     "title_track": { zh: "连续目标追踪与幽灵目标抑制算法", en: "Continuous Tracking vs Simple Mode" },
     "desc_track": { zh: "目标连续追踪与抗幽灵噪点", en: "Target Tracking & Anti-Ghost" },
-    "lbl_labels": { zh: "编号", en: "Labels" },
-    "title_labels": { zh: "在目标上方显示数字编号 ID", en: "Show Target ID Labels" },
-    "desc_labels": { zh: "显示目标编号 ID", en: "Show Target IDs" },
+    "lbl_labels": { zh: "匿名别名", en: "Aliases" },
+    "title_labels": { zh: "显示本次连接中的匿名别名", en: "Show session-only anonymous aliases" },
+    "desc_labels": { zh: "显示匿名别名", en: "Show anonymous aliases" },
     "lbl_smooth": { zh: "平滑", en: "Smooth" },
     "title_smooth": { zh: "目标轨迹指数平滑滤波等级 (1-10)", en: "EMA Smoothing Level (1-10)" },
     "lbl_verify": { zh: "确认", en: "Verify" },
@@ -119,7 +119,8 @@ const UI_I18N = {
     "title_render_mode": { zh: "目标平滑与渲染引擎：极速硬件加速 (CSS, 推荐) / 动效预测引擎 (Canvas)", en: "Target Rendering Engine: Native Hardware (CSS, Rec.) / Kinematic Engine (Canvas)" },
     "opt_render_css": { zh: "极速硬件加速 (CSS, 推荐)", en: "Native Hardware (CSS, Rec.)" },
     "opt_render_canvas": { zh: "动效预测引擎 (Canvas)", en: "Kinematic Engine (Canvas)" },
-    "no_radars": { zh: "暂无雷达", en: "No radars" }
+    "no_radars": { zh: "暂无雷达", en: "No radars" },
+    "anonymous_target": { zh: "匿名使用者", en: "Anonymous occupant" }
 };
 export class RadarUI {
     constructor(root) {
@@ -155,7 +156,7 @@ export class RadarUI {
         if (state.editMode === 'settings') {
             this.updateSettingsInputs(state);
         }
-        if (this.updateRadarList) {
+        if (!config?.read_only && this.updateRadarList) {
             this.updateRadarList(state, config);
         }
     }
@@ -485,7 +486,7 @@ export class RadarUI {
             }
         }
         this.renderPanel(state, config);
-        if (config) this.updateRadarList(state, config);
+        if (config && !config.read_only) this.updateRadarList(state, config);
         const btnToggle = this.root.getElementById('btn-toggle-mode');
         if (config && config.read_only && btnToggle) {
             btnToggle.style.display = 'none';
@@ -976,10 +977,10 @@ export class RadarUI {
                 fallBanner.style.background = 'linear-gradient(135deg, rgba(230, 20, 50, 0.95), rgba(180, 0, 30, 0.95))';
                 fallBanner.style.boxShadow = '0 4px 15px rgba(255, 0, 50, 0.5)';
                 const h = (fallenTarget.abs_height !== undefined && fallenTarget.abs_height !== null) ? `${Number(fallenTarget.abs_height).toFixed(2)}m` : '';
-                const tid = fallenTarget.id ? String(fallenTarget.id).replace('target_', '') : '1';
+                const alias = fallenTarget.anonymousAlias || this.t('anonymous_target', state);
                 const bannerText = this.isZh(state)
-                    ? `🚨 跌倒警报！目标 (${tid}) 离地高度 ${h}`
-                    : `🚨 Fall Alert! Target (${tid}) Height ${h}`;
+                    ? `🚨 跌倒警报！${alias} 离地高度 ${h}`
+                    : `🚨 Fall Alert! ${alias} Height ${h}`;
                 const textEl = this.root.getElementById('fall-banner-text');
                 if (textEl) textEl.innerText = bannerText;
             } else if (suspectedTarget) {
@@ -987,10 +988,10 @@ export class RadarUI {
                 fallBanner.style.background = 'linear-gradient(135deg, rgba(245, 124, 0, 0.95), rgba(200, 90, 0, 0.95))';
                 fallBanner.style.boxShadow = '0 4px 15px rgba(255, 150, 0, 0.5)';
                 const h = (suspectedTarget.abs_height !== undefined && suspectedTarget.abs_height !== null) ? `${Number(suspectedTarget.abs_height).toFixed(2)}m` : '';
-                const tid = suspectedTarget.id ? String(suspectedTarget.id).replace('target_', '') : '1';
+                const alias = suspectedTarget.anonymousAlias || this.t('anonymous_target', state);
                 const bannerText = this.isZh(state)
-                    ? `⚠️ 疑似跌倒确认中... 目标 (${tid}) 离地高度 ${h}`
-                    : `⚠️ Suspected Fall Confirming... Target (${tid}) Height ${h}`;
+                    ? `⚠️ 疑似跌倒确认中... ${alias} 离地高度 ${h}`
+                    : `⚠️ Suspected Fall Confirming... ${alias} Height ${h}`;
                 const textEl = this.root.getElementById('fall-banner-text');
                 if (textEl) textEl.innerText = bannerText;
             } else {

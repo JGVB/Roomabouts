@@ -1,7 +1,8 @@
-import { RadarMath } from './radar-math.js?v=1.3.12';
-import { RadarUI } from './radar-ui.js?v=1.3.12';
-import { RadarRenderer } from './radar-renderer.js?v=1.3.12';
-import { RadarEditor } from './radar-editor.js?v=1.3.12';
+import { RadarMath } from './radar-math.js?v=1.4.0';
+import { RadarUI } from './radar-ui.js?v=1.4.0';
+import { RadarRenderer } from './radar-renderer.js?v=1.4.0';
+import { RadarEditor } from './radar-editor.js?v=1.4.0';
+import { RoomaboutsPresentationAdapter } from './roomabouts-presentation.js?v=1.4.0';
 class RadarMapCardNative extends HTMLElement {
     constructor() {
         super();
@@ -10,6 +11,7 @@ class RadarMapCardNative extends HTMLElement {
         this.ui = new RadarUI(this.shadowRoot);
         this.renderer = new RadarRenderer(this.math, this.shadowRoot);
         this.editor = new RadarEditor(this, this.shadowRoot, this.math, this.ui, this.renderer);
+        this.presentationAdapter = new RoomaboutsPresentationAdapter();
         this.state = {
             editMode: 'zone',
             editing: false,
@@ -28,6 +30,7 @@ class RadarMapCardNative extends HTMLElement {
             calibration: { active: false, raw: null, map: null },
             isConnected: true,
             hass: null,
+            sourceHealth: [],
             aspectRatio: 1.0,
             mapGroup: "default",
             isAddingNew: false,
@@ -37,14 +40,17 @@ class RadarMapCardNative extends HTMLElement {
         this.isCreated = false;
         this.retryTimer = null;
         this.isRendering = false;
+        this._renderFrameId = null;
+        this._streamUnsubscribe = null;
+        this._streamSubscribing = false;
+        this._subscriptionEpoch = 0;
+        this._isDisconnected = false;
         this.resizeObserver = new ResizeObserver(entries => {
             for (let entry of entries) {
                 const { width, height } = entry.contentRect;
                 if (width > 0 && height > 0) {
                     this.state.aspectRatio = width / height;
-                    if (!this.isRendering && this.state.hass) {
-                        requestAnimationFrame(() => this.renderer.draw(this.state, this.config, this.state.hass));
-                    }
+                    this._queueRender();
                 }
             }
         });
@@ -58,13 +64,28 @@ class RadarMapCardNative extends HTMLElement {
     getGridOptions() {
         return { columns: 12, rows: "auto" };
     }
+    connectedCallback() {
+        this._isDisconnected = false;
+        if (!this.isCreated) return;
+        const root = this.shadowRoot.getElementById('root');
+        if (root) this.resizeObserver.observe(root);
+        this.startHeartbeat();
+        const connection = this.state.rawHass?.connection;
+        const isConnected = !!(connection && connection.connected !== false);
+        this._setConnectionState(isConnected);
+        if (isConnected) this._ensureStreamSubscription(this.state.rawHass);
+        this._queueRender();
+    }
     disconnectedCallback() {
+        this._isDisconnected = true;
         this.resizeObserver.disconnect();
         if (this.retryTimer) clearInterval(this.retryTimer);
-        if (this._streamUnsubscribe) {
-            this._streamUnsubscribe();
-            this._streamUnsubscribe = null;
-        }
+        this.retryTimer = null;
+        if (this._renderFrameId !== null) cancelAnimationFrame(this._renderFrameId);
+        this._renderFrameId = null;
+        this.isRendering = false;
+        this._teardownStream();
+        this._clearPresentation('disconnect', { destroyRenderer: true, redraw: false });
     }
     static getStubConfig() {
         return { type: "custom:radar-map-card", map_group: "default" };
@@ -73,55 +94,108 @@ class RadarMapCardNative extends HTMLElement {
         return 5;
     }
     setConfig(config) {
-        this.config = config;
-        this.state.mapGroup = config.map_group || "default";
+        this.config = { ...config, read_only: true };
+        this.state.mapGroup = this.config.map_group || "default";
+        this.state.editing = false;
         if (this.isCreated) return;
         this.ui.render(this.state, this.config);
         this.isCreated = true;
         const root = this.shadowRoot.getElementById('root');
         if (root) this.resizeObserver.observe(root);
-        this.initLogic();
+        if (!this.config.read_only) this.initLogic();
         this.startHeartbeat();
     }
     set hass(h) {
-        if (this.state.rawHass && this.state.rawHass.connection && h && h.connection && this.state.rawHass.connection !== h.connection) {
+        const sanitizedHass = this.getMockHass(h);
+        const previousConnection = this.state.rawHass?.connection;
+        const nextConnection = sanitizedHass?.connection;
+        if (previousConnection && previousConnection !== nextConnection) {
             console.log("[Roomabouts] HA Connection changed (wake from sleep). Resubscribing...");
-            if (this._streamUnsubscribe) { this._streamUnsubscribe(); this._streamUnsubscribe = null; }
-            this._streamSubscribing = false;
+            this._teardownStream();
+            this._clearPresentation('disconnect', { redraw: false });
         }
-        this._hass = h;
-        this.state.rawHass = h;
-        this.state.hass = this.getMockHass(h); 
-        if (!this._streamUnsubscribe && !this._streamSubscribing && h && h.connection) {
-            this._streamSubscribing = true;
-            h.connection.subscribeMessage(
-                (message) => { this.handleNewData(message.data); },
-                { type: 'rmm/stream' }
-            ).then(unsub => {
-                this._streamUnsubscribe = unsub;
-                this._streamSubscribing = false;
-            }).catch(() => {
-                this._streamSubscribing = false;
-            });
-        }
+        this._hass = sanitizedHass;
+        this.state.rawHass = sanitizedHass;
+        this.state.hass = sanitizedHass;
+        const isConnected = !!(nextConnection && nextConnection.connected !== false);
+        this._setConnectionState(isConnected);
+        if (isConnected) this._ensureStreamSubscription(sanitizedHass);
         if (this.isCreated) {
             if (this.state.editMode === 'layout' && !this.state.dragState.isDragging) {
-                this.ui.updateLayoutInputs(this.state, h);
+                this.ui.updateLayoutInputs(this.state, sanitizedHass);
             }
             if (this.state.editMode === 'settings') {
                 this.ui.updateSettingsInputs(this.state);
             }
-            if (!this.isRendering) {
-                this.isRendering = true;
-                requestAnimationFrame(() => {
-                    this.renderer.draw(this.state, this.config, this.state.hass);
-                    this.isRendering = false;
-                });
-            }
+            this._queueRender();
             if (!this.isRendering && !this.state.dragState.isDragging) {
                 this.ui.updateStatus(this.state, this.config);
             }
         }
+    }
+    _queueRender() {
+        if (this._isDisconnected || !this.isCreated || !this.state.hass || this._renderFrameId !== null) return;
+        this.isRendering = true;
+        this._renderFrameId = requestAnimationFrame(() => {
+            this._renderFrameId = null;
+            if (!this._isDisconnected) {
+                this.renderer.draw(this.state, this.config, this.state.hass);
+            }
+            this.isRendering = false;
+        });
+    }
+    _once(unsubscribe) {
+        let called = false;
+        return () => {
+            if (called) return;
+            called = true;
+            if (typeof unsubscribe === 'function') {
+                try {
+                    return unsubscribe();
+                } catch (_error) {
+                    return undefined;
+                }
+            }
+        };
+    }
+    _teardownStream() {
+        this._subscriptionEpoch += 1;
+        this._streamSubscribing = false;
+        const unsubscribe = this._streamUnsubscribe;
+        this._streamUnsubscribe = null;
+        if (unsubscribe) unsubscribe();
+    }
+    _ensureStreamSubscription(hass) {
+        const connection = hass?.connection;
+        if (!connection || this._streamUnsubscribe || this._streamSubscribing || this._isDisconnected) return;
+        const epoch = ++this._subscriptionEpoch;
+        this._streamSubscribing = true;
+        let pending;
+        try {
+            pending = connection.subscribeMessage(
+                (message) => {
+                    if (epoch !== this._subscriptionEpoch || connection !== this.state.rawHass?.connection) return;
+                    this.handleNewData(message?.data);
+                },
+                { type: 'rmm/stream' }
+            );
+        } catch (_error) {
+            if (epoch === this._subscriptionEpoch) this._streamSubscribing = false;
+            return;
+        }
+        Promise.resolve(pending).then(unsubscribe => {
+            const safeUnsubscribe = this._once(unsubscribe);
+            if (epoch !== this._subscriptionEpoch
+                || connection !== this.state.rawHass?.connection
+                || this._isDisconnected) {
+                safeUnsubscribe();
+                return;
+            }
+            this._streamUnsubscribe = safeUnsubscribe;
+            this._streamSubscribing = false;
+        }).catch(() => {
+            if (epoch === this._subscriptionEpoch) this._streamSubscribing = false;
+        });
     }
     fetchData(force = false) {
         if (force) {
@@ -130,11 +204,21 @@ class RadarMapCardNative extends HTMLElement {
         }
     }
     handleNewData(rawData) {
+        const presentation = this.presentationAdapter.ingest(rawData);
+        if (!presentation.accepted) return;
+        if (presentation.reset) {
+            this._clearPresentation(presentation.resetReason, {
+                resetAdapter: false,
+                redraw: false,
+            });
+        }
         if (this.ignoreUpdatesUntil > 0 && Date.now() < this.ignoreUpdatesUntil) return;
         const isFrozen = this.state.calibration && this.state.calibration.active;
         if (!this.state.hasUnsavedChanges && !isFrozen) {
-            this.fullRawData = JSON.parse(JSON.stringify(rawData));
-            this.state.data = this._adaptV2ToV1(rawData);
+            this.state.mapGroup = presentation.map.mapId;
+            this.state.data = this._toInheritedMapState(presentation.map);
+            this.state.fused_targets = presentation.tracks.map(track => this._toFusedTarget(track));
+            this.state.sourceHealth = presentation.sourceHealth;
             this.state.historyStack = [];
             const renderMode = this.state.data?.global_config?.target_render_mode || this.config.target_render_mode || 'css';
             if (renderMode === 'canvas' && (this.state.editMode === 'zone' || this.state.editMode === 'settings' || !this.state.editing)) {
@@ -145,25 +229,76 @@ class RadarMapCardNative extends HTMLElement {
             this.ui.updateStatus(this.state, this.config);
         }
     }
-    _adaptV2ToV1(v2Data) {
-        const mapGroup = this.state.mapGroup;
-        const v1Data = {};
-        const mapData = (v2Data.maps && v2Data.maps[mapGroup]) || {};
-        v1Data.global_zones = mapData.zones || { include_zones: [], exclude_zones: [] };
-        v1Data.global_config = mapData.config || { update_interval: 0.1, merge_distance: 0.8 };
-        this.state.fused_targets = mapData.targets || []; 
-        const allRadars = v2Data.radars || {};
-        Object.keys(allRadars).forEach(rName => {
-            if (rName === 'fused_targets') return; 
-            const rData = allRadars[rName];
-            const rGroup = rData.map_group || "default";
-            if (rGroup === mapGroup) v1Data[rName] = rData;
-        });
-        return v1Data;
+    _toInheritedMapState(map) {
+        const data = {
+            global_zones: map.zones,
+            global_config: map.config,
+        };
+        for (const radar of map.radars) {
+            data[radar.sensorId] = {
+                map_group: radar.mapGroup,
+                paused: radar.paused,
+                layout: radar.layout,
+                monitor_zones: radar.monitor_zones,
+                hw_detect_zones: radar.hw_detect_zones,
+                hw_block_zones: radar.hw_block_zones,
+                hw_stay_zones: radar.hw_stay_zones,
+            };
+        }
+        return data;
+    }
+    _toFusedTarget(track) {
+        return {
+            id: track.trackId,
+            x: track.position.x,
+            y: track.position.y,
+            lifecycle: track.lifecycle,
+            positionBasis: track.positionBasis,
+            anonymousAlias: track.anonymousAlias,
+            emitFootprint: track.emitFootprint,
+            sourceRefs: track.sourceRefs,
+            observedAt: track.observedAt,
+            lastObservedAgeMs: track.lastObservedAgeMs,
+            uncertainty: track.uncertainty || [],
+            posture: track.posture || 'unknown',
+        };
+    }
+    _emptyPresentationData() {
+        return {
+            global_zones: {
+                include_zones: [],
+                exclude_zones: [],
+                entrance_zones: [],
+                stationary_zones: [],
+            },
+            global_config: {},
+        };
+    }
+    _clearPresentation(reason, {
+        resetAdapter = true,
+        destroyRenderer = false,
+        redraw = true,
+    } = {}) {
+        if (resetAdapter) {
+            if (reason === 'disconnect') this.presentationAdapter.disconnect();
+            else this.presentationAdapter.reset(reason);
+        }
+        this.state.data = this._emptyPresentationData();
+        this.state.fused_targets = [];
+        this.state.sourceHealth = [];
+        this.state.historyStack = [];
+        this.state.points = [];
+        this.state.calibration = { active: false, raw: null, map: null };
+        this.state.hasUnsavedChanges = false;
+        this.state.editing = false;
+        if (destroyRenderer) this.renderer.destroy();
+        else this.renderer.clearRuntime();
+        if (this.isCreated) this.ui.updateStatus(this.state, this.config);
+        if (redraw) this._queueRender();
     }
     getMockHass(h) {
         if (!h) return null;
-        return { ...h, states: { ...h.states } };
+        return { ...h, states: {} };
     }
     initLogic() {
         const that = this;
@@ -186,6 +321,10 @@ class RadarMapCardNative extends HTMLElement {
                 }, 50);
             },
             onToggleEditMode: () => {
+                if (that.config?.read_only) {
+                    that.exitEditMode();
+                    return;
+                }
                 if (that.state.editing) that.exitEditMode(); 
                 else that.enterEditMode(that._hass);
             },
@@ -242,6 +381,7 @@ class RadarMapCardNative extends HTMLElement {
                 that.renderer.draw(that.state, that.config, that._hass); 
             },
             onSaveLayout: async () => {
+                if (that.config?.read_only) return;
                 if(!that.state.radar) return;
                 const r = that.state.data[that.state.radar];
                 const newLayout = { ...(r.layout || {}), ...that.state.layoutChanges };
@@ -324,6 +464,7 @@ class RadarMapCardNative extends HTMLElement {
         }
     }
     async saveZoneToBackend() {
+        if (this.config?.read_only) throw new Error('Roomabouts is read-only in Phase 2');
         const isRadarZone = this.state.editMode === 'layout';
         const zoneType = isRadarZone ? 'monitor_zones' : this.state.type;
         const zones = isRadarZone
@@ -345,6 +486,11 @@ class RadarMapCardNative extends HTMLElement {
         }
     }
     enterEditMode(h) {
+        if (this.config?.read_only) {
+            this.state.editing = false;
+            this.ui.updateStatus(this.state, this.config);
+            return false;
+        }
         this.state.editing = true;
         this.ui.updateRadarList(this.state, this.config);
         this.state.points = [];
@@ -352,6 +498,7 @@ class RadarMapCardNative extends HTMLElement {
         this.ui.updateStatus(this.state, this.config);
         setTimeout(() => this.ui.updateLayoutInputs(this.state, h), 50);
         this.renderer.draw(this.state, this.config, h);
+        return true;
     }
     exitEditMode() {
         this.state.editing = false;
@@ -366,11 +513,18 @@ class RadarMapCardNative extends HTMLElement {
     }
     checkConnection() {
         if (!this._hass) return;
-        const isOk = this._hass.connection && this._hass.connection.connected;
-        if (this.state.isConnected !== isOk) {
-            this.state.isConnected = isOk;
-            this.ui.updateStatus(this.state, this.config);
+        const isOk = !!(this._hass.connection && this._hass.connection.connected !== false);
+        this._setConnectionState(isOk);
+        if (isOk) this._ensureStreamSubscription(this._hass);
+    }
+    _setConnectionState(isConnected) {
+        if (this.state.isConnected === isConnected) return;
+        this.state.isConnected = isConnected;
+        if (!isConnected) {
+            this._teardownStream();
+            this._clearPresentation('disconnect');
         }
+        if (this.isCreated) this.ui.updateStatus(this.state, this.config);
     }
 }
 function registerCard() {
@@ -387,7 +541,7 @@ function registerCard() {
         type: "radar-map-card",
         name: "Roomabouts Map",
         preview: false, 
-        description: "Live Home Assistant room map with sensor-backed presence and zone editing."
+        description: "Read-only Home Assistant room map with sensor-backed presence."
     };
     const cardIndex = window.customCards.findIndex(c => c.type === 'radar-map-card');
     if (cardIndex >= 0) {

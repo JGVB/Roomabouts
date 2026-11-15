@@ -66,7 +66,17 @@ class FrontendSafetyTests(unittest.TestCase):
         cls.bundle = "\n".join(cls.sources.values())
 
     def test_exclusive_transport_credentials_and_controls_are_absent(self):
-        self.assertEqual(len(self.sources), 5)
+        self.assertEqual(
+            set(self.sources),
+            {
+                "radar-editor.js",
+                "radar-map-card.js",
+                "radar-math.js",
+                "radar-renderer.js",
+                "radar-ui.js",
+                "roomabouts-presentation.js",
+            },
+        )
         lower_bundle = self.bundle.lower()
 
         for literal in FORBIDDEN_LITERALS:

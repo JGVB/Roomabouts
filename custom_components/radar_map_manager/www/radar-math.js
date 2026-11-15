@@ -114,6 +114,9 @@ export class TargetFilter {
     update(key, measX, measY, metadata = {}) {
         const now = this._clock();
         let track = this.tracks.get(key);
+        const emitsFootprints = metadata.emitFootprint === true
+            && metadata.lifecycle === 'confirmed'
+            && metadata.positionBasis === 'observed';
         if (!track) {
             track = {
                 id: key,
@@ -128,9 +131,28 @@ export class TargetFilter {
                 alive: true,
                 alpha: 1.0,
                 metadata: metadata,
-                history: [{ x: measX, y: measY, time: now }]
+                history: emitsFootprints ? [{ x: measX, y: measY, time: now }] : []
             };
             this.tracks.set(key, track);
+            return track;
+        }
+        const wasEmittingFootprints = track.metadata?.emitFootprint === true
+            && track.metadata?.lifecycle === 'confirmed'
+            && track.metadata?.positionBasis === 'observed';
+        if (!emitsFootprints) {
+            track.history = [];
+        } else if (!wasEmittingFootprints) {
+            track.x = measX;
+            track.y = measY;
+            track.vx = 0;
+            track.vy = 0;
+            track.targetX = measX;
+            track.targetY = measY;
+            track.lastUpdate = now;
+            track.alive = true;
+            track.alpha = 1.0;
+            track.metadata = metadata;
+            track.history = [{ x: measX, y: measY, time: now }];
             return track;
         }
         const dt = (now - track.lastUpdate) / 1000;
@@ -153,7 +175,7 @@ export class TargetFilter {
             track.targetY = measY;
             track.vx = 0;
             track.vy = 0;
-            track.history = [{ x: measX, y: measY, time: now }];
+            track.history = emitsFootprints ? [{ x: measX, y: measY, time: now }] : [];
             return track;
         }
         const measVx = (measX - track.targetX) / safeDt;
@@ -199,11 +221,17 @@ export class TargetFilter {
                 track.y += toY * Math.min(1.0, dt * 12);
                 track.alpha = 1.0;
             }
-            if (!track.history) track.history = [];
-            const lastHist = track.history[track.history.length - 1];
-            if (!lastHist || Math.hypot(track.x - lastHist.x, track.y - lastHist.y) > 0.4) {
-                track.history.push({ x: track.x, y: track.y, time: now });
-                if (track.history.length > 6) track.history.shift();
+            if (track.metadata?.emitFootprint === true
+                && track.metadata?.lifecycle === 'confirmed'
+                && track.metadata?.positionBasis === 'observed') {
+                if (!track.history) track.history = [];
+                const lastHist = track.history[track.history.length - 1];
+                if (!lastHist || Math.hypot(track.x - lastHist.x, track.y - lastHist.y) > 0.4) {
+                    track.history.push({ x: track.x, y: track.y, time: now });
+                    if (track.history.length > 6) track.history.shift();
+                }
+            } else {
+                track.history = [];
             }
             activeTracks.push(track);
         }
@@ -221,5 +249,6 @@ export class TargetFilter {
     }
     clear() {
         this.tracks.clear();
+        this.lastFrameTime = this._clock();
     }
 }
