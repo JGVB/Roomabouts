@@ -1,368 +1,66 @@
-# Radar Map Manager (RMM)
+# Roomabouts
 
-![Logo](logo.png)
+Roomabouts is a local-first, enchanted-cartographic home map for Home Assistant. It turns X/Y-capable presence-radar entities into a live spatial view while keeping movement coordinates ephemeral.
 
-[![HACS Default](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/default)
-[![GitHub Release](https://img.shields.io/github/v/release/Moe8383/radar_map_manager?label=version&color=007ec6)](https://github.com/Moe8383/radar_map_manager/releases)
-[![GitHub Downloads](https://img.shields.io/github/downloads/Moe8383/radar_map_manager/total?label=downloads&color=brightgreen)](https://github.com/Moe8383/radar_map_manager/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/Moe8383/radar_map_manager?logo=github&color=blue)](https://github.com/Moe8383/radar_map_manager/stargazers)
-[![GitHub Issues](https://img.shields.io/github/issues/Moe8383/radar_map_manager?color=yellow)](https://github.com/Moe8383/radar_map_manager/issues)
+> **Development status:** Roomabouts is a personal prototype under active implementation. Do not install this branch on a primary Home Assistant instance yet. The first supported installation will follow the documented storage, authorization, and Recorder checks on a backed-up test instance.
 
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-%3E%3D%202024.1.0-blue?logo=homeassistant)](https://www.home-assistant.io/)
-[![IoT Class](https://img.shields.io/badge/IoT%20Class-Local%20Polling-brightgreen)](https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things/)
-[![License](https://img.shields.io/github/license/Moe8383/radar_map_manager?color=blue)](LICENSE)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/Moe8383/radar_map_manager/graphs/commit-activity)
+## First proof
 
+The initial proof is intentionally narrow:
 
-> 🇺🇸 English | 🇨🇳 [简体中文](README_zh.md)
+- one room, one floor, one X/Y-capable mmWave sensor, and one moving person;
+- Home Assistant entity state as the only live input;
+- synthetic replay for development before hardware arrives;
+- an administrator-only in-memory coordinate stream;
+- coordinate-free count and occupancy entities for normal Home Assistant state;
+- original Roomabouts cartography and anonymous, session-scoped tracks.
 
-**Radar Map Manager (RMM)** is a millimeter-wave radar visualization and data fusion integration built specifically for Home Assistant.
+The first proof does **not** support direct radar WebSockets, RMM hardware pairing, UDP listeners, hardware MQTT commands, BLE identity, UWB, named-person tracking, cloud accounts, telemetry, or remote access.
 
-It is not just a floor plan card, but a **spatial perception engine**. RMM maps data from multiple scattered millimeter-wave radars in your home onto one or more floor plans, enabling whole-house human tracking, trajectory visualization, and precise coordinate-based automation.
+## Home Assistant compatibility
 
-> 🚀 V1.3 Major Update! Introducing the all-new Global Physical Scale engine based on real-world physical distance calculations; Custom Radar Dimension Type Adaptation with full support for 2D, 2.5D, and 3D radars; Optimized Rendering and UI featuring a new dynamic display for target movement direction.
+Roomabouts is built as a compatible fork of Radar Map Manager. To avoid a risky migration before the experience is proven, these internal identifiers remain unchanged:
 
----
+- integration domain and storage key: `radar_map_manager`;
+- component directory: `custom_components/radar_map_manager`;
+- frontend resource path: `/radar_map_manager/`;
+- custom element: `radar-map-card`;
+- release archive: `radar_map_manager.zip`.
 
-## ✨ Core Features
+The displayed product, repository, documentation, and future visual treatment are Roomabouts.
 
-### 1. 🎯 WYSIWYG Visual Editor
-Ditch the tedious YAML coordinate calculations! RMM provides an interactive frontend editor:
-* **Config/View Modes**: Supports **Config Mode** and **Read-Only Mode**, allowing for both easy setup and clean display.
-* **Auto Discovery**: Automatically scans and easily adds supported radar devices within the local network.
-* **Multi-Map/Multi-Floor Support**: Manage multiple floors and locations easily with **`map_group`**, creating independent views for your home or office.
-* **Flexible Radar Configuration**: Drag and drop radar positions directly on the floor plan. Supports rotation, scaling, and mirroring for one-stop management.
-* **Automatic Positioning & Scaling**: With the **Freeze** function, you can visually locate a radar target relative to the floor plan to easily adjust the radar scaling—goodbye to blind guessing.
-* **Mounting Styles**: Perfectly supports both **Side Mount** and **Ceiling Mount** radars.
+## Privacy and security boundary
 
-### 2. 🌐 Multi-Radar Sensor Fusion
-RMM's target fusion engine unifies target points from multiple radars into a single coordinate system:
-* **Auto-Clustering**: Merges data when multiple radars detect the same person to prevent "ghost targets." Supports custom fusion ranges.
-* **Blind Spot Compensation**: Eliminates detection dead zones in rooms by overlapping multiple radars.
-* **Trajectory Smoothing**: Built-in 10-level target trajectory smoothing to eliminate stuttering and jumping.
+The implementation is being hardened before live installation:
 
-### 3. 🛡️ Flexible Zone Management
-Supports arbitrary polygons with flexible editing, making zone management easy:
-* **Radar Monitor Zones**: Set individual monitor zones for each radar. Targets are only fused and displayed if they enter this zone; otherwise, global fusion is used by default.
-* **Global Detect Zones**: **Automation Powerhouse!** Freely set detection zones on the floor plan. When a fused target enters these zones, HA entities (automatically generated) are triggered. You can also customize trigger delays to avoid false alarms.
-* **Global Exclude Zones**: **The False Alarm Killer!** Draw zones around fans, curtains, or plants. The engine automatically filters out all interference signals within these areas.
-* **Entrance Zones**: **Green Channel & Double Insurance against False Alarms!** Any new target spawned within this zone is unconditionally trusted and verified instantly, bypassing the verify delay to achieve zero-latency "occupied" reporting.
-  * *Tip: It is highly recommended to draw this zone at the actual door frames of your room.*
-* **Stationary Hold Zones**: **The Ultimate Defense against "Lights Out While Occupied".** Designed for scenarios with extreme stillness like deep sleep, reading, or using the bathroom. If the radar temporarily loses your signal within this zone, the system locks a "Stationary Anchor" in place, continuing to report "occupied" until the countdown finishes.
-* **Independent Delay (`Dly`)**: Customize the tolerance time (in seconds) for each piece of furniture. Simply enter the seconds in the top `Dly` input when drawing (leave blank or set to 0 to fall back to the global `S_Hold` time).
-  * *Bed (Deep Sleep)*: Set to `3600` (1 hour). Sleep soundly till morning even if motionless under thick blankets.
-  * *Sofa (Focused Viewing)*: Set to `600` (10 mins). Perfectly balances an immersive experience with energy-saving auto-off when you leave.
-  * *Toilet/Bathtub (Bathroom)*: Set to `300` (5 mins). Say goodbye to the awkward hand-waving needed to keep the lights on.
-* **Hardware-Level Zones (`Hardware Zones`)**: (Exclusive for RMM Exclusive Radars, upcoming) Draw polygons on the HA map and sync them directly to the radar's hardware for native signal filtering! This perfectly complements global zones.
-* **Automation Entities**: Each Global Detect Zone automatically generates a **Presence entity (`binary_sensor`)** and a **Count entity (`sensor`)**, letting you easily implement automations. Easily implement automations like "Person on sofa automatically turns on TV" or "Person enters bathroom area automatically adjusts lights."
+- persistent storage contains configuration, never raw or fused targets;
+- legacy runtime coordinates, credentials, and direct-network settings are removed by a versioned migration;
+- state-changing actions and coordinate subscriptions require a verified Home Assistant administrator;
+- live, replay, and synthetic inputs cross the same versioned observation contract;
+- exclusive UDP, MQTT, pairing, hardware publishing, and direct-radar transports are unavailable in the first proof;
+- real source-coordinate entities must be excluded from Recorder before sensor testing.
 
-### 4. 📐 3D Spatial Correction
-For side-mounted radars, RMM features a built-in 3D geometric correction algorithm. It automatically converts Slant Range to Ground Distance based on installation height and target height, significantly improving positioning accuracy.
+See [decision 0002](docs/decisions/0002-initial-security-and-privacy-floor.md) for the approved boundary. Passing unit tests does not replace the later Home Assistant storage and Recorder verification protocols.
 
-### 5. 🚨 3D Radar Fall Alert & Bed/Sofa False-Alarm Protection
-For 3D radars capable of height sensing (such as LD6002B, LD6004, etc.), RMM provides room-level fall protection with smart false-alarm filtering:
-* **Spatial Fall Guardian**: Continuously tracks target height above ground. When a person stays below the fall height threshold for longer than the set delay, a room-level alarm entity (`binary_sensor.rmm_<room>_fall_alert`) triggers automatically with visual shockwaves and alert banners on the map card.
-* **Bed/Sofa False-Alarm Immunity**: Smart zone exemption! When someone lies down on a bed or sofa inside a "Stationary Hold" zone, RMM recognizes it as normal resting.
+## Development
 
----
+The active implementation source is [the fork foundation plan](docs/plans/active/2026-11-15-rmm-fork-foundation.md). The project uses small owned workstreams, isolated Git worktrees, explicit decisions, independent review, and evidence-based gates; see [the engineering workflow](docs/engineering/workflow.md).
 
-### 6. ⚡ In-Memory High-Speed Tunnel & Dual Rendering Engines (Zero I/O & Zero Idle Drain)
-* **Zero Database I/O Overhead**: To safeguard your Home Assistant database (Recorder) and extend Raspberry Pi / SD card longevity, high-frequency (10Hz) radar coordinate streams are tunneled through an in-memory event bus directly to the frontend card. Zero redundant entity history writes means zero disk wear!
-* **Dual Rendering Engines**:
-  * **Native Hardware (CSS, Default & Recommended)**: Leverages browser compositor-thread GPU interpolation for zero algorithmic lag and responsive, stutter-free movement (100ms–1000ms adaptive tracking).
-  * **Kinematic Engine (Canvas)**: Features adaptive kinematic filtering, heading vectors, and optional dynamic motion trails.
-* **Ultra-Low Idle Power (Zero Idle Drain)**: When there is no active motion or when the map is idle, the card completely suspends background rendering. This achieves genuine 0% CPU/GPU idle overhead, drastically reducing heat and battery drain on wall-mounted smart control tablets and mobile devices.
+The dependency-free local quality gate uses Python 3.14.3 and Deno 2.6.9:
 
-### 7. 🔐 Zero-Trust Local Security Architecture
-Upcoming RMM Dedicated Hardware integrates dynamic pairing PINs and hardware-grade encryption, ensuring your radar sensors connect securely and locally to Home Assistant without cloud dependencies or privacy leaks.
-
----
-
-## 🛠️ Supported Hardware
-
-RMM is compatible with any millimeter-wave radar integrated into Home Assistant (including 1D, 2D, and 3D variants), as long as they provide `DISTANCE` or `X/Y` coordinate data, such as `HLK-LD2450` `LD2460` `LD6001` `LD6002b` `LD6004`.
-
-### Connection Methods
-* **RMM Exclusive Firmware** *(Upcoming, stay tuned)*
-* **ESPHome / MQTT** *(Recommended for open-source users)*
-* **Zigbee** *(Must support coordinate reporting)*
-
-### ⚠️ IMPORTANT NOTICE!!!
-
-#### Coordinate Entity Naming Convention (Non-RMM Exclusive Radars)
-To ensure the integration correctly parses radar data, please adhere to the following entity naming conventions:
-
-1. **1D Radar**: `sensor.[radar_name]_distance`
-   * *Example: `sensor.rd_ld2410_distance`*
-2. **2D/3D Radar**: `sensor.[radar_name]_target_?_x`
-   * *Must include `_x`, `_y`, and optionally `_z` variants.*
-   * *Example: `sensor.rd_ld6004_target_1_x`*
-3. **Radar Target Count [Optional]**: `sensor.[radar_name]_presence_target_count`
-   * *Example: `sensor.rd_ld2450_presence_target_count`*
-4. **Target Coordinate Units**:
-   * *Supported units: `m`, `cm`, `mm`*
-   * *Highly recommended to define the unit. If omitted, `m` (meters) is assumed by default.*
-
-#### Database Optimization (Recorder Exclusion)
-
-**For V1.0.x Users (Strongly Recommended)**:
-If you are running **RMM V1.0.x**, we strongly advise adding the following to your `configuration.yaml` to minimize database bloat and disk I/O:
-
-```yaml
-recorder:
-  exclude:
-    entity_globs:
-      - sensor.rmm_*_master  # Excludes high-frequency coordinate attributes
+```sh
+python3 -m compileall -q custom_components/radar_map_manager tests/python
+python3 -m unittest discover -s tests/python -p 'test_*.py'
+deno check --no-config custom_components/radar_map_manager/www/*.js tests/js/*.js
+deno test --no-config tests/js
 ```
 
----
+Home Assistant-dependent behavior is verified later in a named, backed-up test-instance protocol. Browser automation and its package toolchain are deliberately deferred to a separate approved decision.
 
-## 📦 Installation
+## Upstream and license
 
-### Method 1: HACS Automatic Installation (Recommended)
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Moe8383&repository=radar_map_manager&category=integration)
-1. Open **HACS** in your Home Assistant.
-2. Go to **Integrations** and click the **Explore & Download Repositories** button at the bottom right.
-3. Search for **"Radar Map Manager"** and click **Download**.
-4. Click to view the details, and click **Download** in the bottom right corner.
-5. Restart your Home Assistant.
+Roomabouts preserves the Git history and MIT license of [Moe8383/radar_map_manager](https://github.com/Moe8383/radar_map_manager), the project that supplied the original Home Assistant integration, editor, fusion engine, and renderer. Fork-specific work must not be presented as if those foundations were authored from scratch.
 
-### Method 2: Manual Installation
-1.  Download the `custom_components/radar_map_manager` folder from this repository.
-2.  Copy it to your Home Assistant's `custom_components/` directory.
-3.  Restart Home Assistant.
+Upstream synchronization is documented in [docs/engineering/upstream-sync.md](docs/engineering/upstream-sync.md). The `rmm-upstream` remote is fetch-only locally so Roomabouts changes cannot be pushed to the upstream repository by mistake.
 
----
-
-## ⚙️ Configuration Guide
-
-### Step 1: Add Integration
-1.  Go to **Settings** -> **Devices & Services** -> **Add Integration**.
-2.  Search for **Radar Map Manager** and add it.
-
-### Step 2: Add Card
-1.  On your dashboard, click "Edit Dashboard" -> "Add Card".
-2.  Search for **Radar Map Card** (or **Radar Map Manager**).
-3.  Or use the following YAML configuration:
-
-**Standalone Use (Manual Card):**
-```yaml
-type: custom:radar-map-card
-map_group: default                   # Optional, floor plan/map group name, default: default
-bg_image: /local/floorplan/house.png # Required in edit mode, path to floor plan image
-target_radius: 5                     # Optional, size of the fused target dot
-radar_radius: 1.1                    # Optional, size of the radar device node, default: 1.1
-handle_radius: 1.5                   # Optional, size of edit handles
-handle_stroke: 0.2                   # Optional, border size of active handles
-zone_stroke: 0.5                     # Optional, zone line width
-label_size: 2                        # Optional, font size for zone names
-target_colors:                       # Optional, custom colors for raw radar targets
-  - yellow
-  - "#00FFFF"
-  - "#FF00FF"
-```
-
-**Use inside a Picture-Elements Card:**
-```yaml
-type: picture-elements
-image: /local/floorplan/3dplan/blank_floor.png
-elements:
-  - type: custom:radar-map-card
-    radar_radius: 1.1
-    target_radius: 5
-    read_only: true
-    style:
-      top: 50%
-      left: 50%
-      width: 100%
-      height: 100%
-      transform: translate(-50%, -50%)
-      pointer-events: none
-```
-
-> [!TIP]
-> **Troubleshooting: "Custom element not found: radar-map-card"**
-> 1. **Add Integration First**: RMM is a full integration. Ensure you have completed Step 1 (**Settings** -> **Devices & Services** -> **Add Integration** -> **Radar Map Manager**).
-> 2. **Hard Refresh**: Force reload your browser cache (`Ctrl + Shift + R` or `Cmd + Shift + R`). On mobile Companion App, reset frontend cache under App Settings and restart.
-> 3. **Manual Resource Registration (Optional)**: If your dashboard does not load it automatically, go to **Settings** -> **Dashboards** -> 3 dots in top right -> **Resources** -> **Add Resource**:
->    - **URL**: `/radar_map_manager/radar-map-card.js`
->    - **Resource type**: `JavaScript Module`
-
----
-
-## 🪄 Editor Mode Guide
-
-Click the ⚙️ icon in the top right corner of the card to enter Edit Mode.
-
-![RMM](gif/open_rmm.gif)
-
-### A. 📡 Radar Layout (Layout)
-
-Click `Layout` in the panel to enter radar layout mode. Targets displayed here are raw radar coordinates.
-
-![LAYOUT](images/layout_1.png)
-
-#### 1. Add/Delete Radar
-
-* Add: Click `+`, enter the radar name as defined in HA. For example, if the coordinate entity is `sensor.rd_ld2450_target_1_x`, enter: `rd_ld2450`
-
-* Delete: Select an added radar and click `-` to delete it. Operate with caution.
-
-#### 2. Radar Settings & Status Indicators
-
-![LAYOUT](gif/layout_editor.gif)
-
-* **Radar Status & Color Indicators**:
-  * 🌟 **Exclusive Radar (Online)**: Rendered in **Radiant Amber Gold** (`#FF9100`) featuring a dynamic breathing tech halo, ambient soft glow, and an automatic `⭐` star badge prefix.
-  * 🔵 **Standard Radar (Online)**: Displayed in **Tech Blue** (`#03A9F4`).
-  * 🔴 **Offline Warning**: Automatically alerts in **Warning Red** (`#dc3545`) with an `(Off)` indicator when the radar entity becomes unavailable.
-  * ⚫ **Manual Pause**: Displayed in **Dark Gray** (`#555555`) with a `(⏸)` symbol.
-  * 🟡 **Currently Selected**: Center point glows in **Bright Gold** (`#FFD700`), and FOV cone & angle pointers sync seamlessly with the radiant amber theme.
-
-* **Positioning**: Drag the radar to its actual physical location on the map. Drag the radar handle to adjust the angle. Position and rotation can be fine-tuned using the `X`/`Y`/`Rot` inputs in the panel.
-
-* **Scale Adjustment**: Stand within the radar's detection range (preferably away from the center line and try multiple positions). Use a combination of these methods to match radar targets with the floor plan:
-  
-  * 1（Recommended). Click the `Freeze` button. This locks the first target detected by the radar. Manually drag this target to your actual standing position on the floor plan, and the system will automatically calculate the scale.
-
-![LAYOUT](gif/layout_freeze.gif)
-
-  * 2. Adjust `ScX` and `ScY` sliders to change the `X`/`Y` coordinate scaling.
-  * 3. Click `Ax` / `Ay` to automatically adjust based on the background image aspect ratio (reference only).
-
-* **Mounting Mode**: Check `Ceiling` at the bottom of the panel to switch between "Side Mount" and "Ceiling Mount".
-
-* **Mirror Mode**: Check `Mirror` to invert the radar's X-axis.
-
-* **Custom radar types**: 2D (X/Y coordinates only), 2.5D (X/Y coordinates + mounting height parameter), or 3D (native X/Y/Z coordinates)
-
-* `H`: Radar mounting height
-
-* `3D Point Cloud`: Display radar point cloud (only applicable to exclusive radars)
-
-* `⏸` Pause Radar: Temporarily pause data stream & point cloud rendering for this radar.
-
-* **⭐ Exclusive Hardware Actions (Requires RMM Dedicated Hardware, Coming Soon)**:
-  * 🌐 **One-Click Web Console Access**: System automatically detects local LAN IP; click to open web console directly in a new tab.
-  * ☁️ / ⬆️ **Firmware Version & Cloud OTA Upgrade**: Automatically tracks radar firmware updates; alerts with an orange badge and dot when new firmware is available, enabling one-click cloud updates from the card.
-
-* `UNDO`: Undo the last operation.
-
-#### 3. Radar Monitor Zones
-
-![LAYOUT](gif/layout_monitor.gif)
-
-* Select a radar via the panel or the map, then click the `Monitor` button to edit its monitor zones.
-
-* Add Zone: Click `ADD NEW`, define the shape by clicking polygon points on the map, name the zone, and click `FINISH` to save.
-
-* Adjust Zone: Select a zone and drag points to adjust the shape. Double-click a point to delete it.
-
-* Delete Zone: Select a zone and click `DEL` to remove it; click `CLR ALL` to remove all monitor zones for that radar (Caution!).
-
-* Click `DONE` to exit Monitor zone editing.
-
-### B. 🛡️ Zone Management (Zones)
-
-Click `Zones` in the panel to enter global zone management. Note: Zones here are global and relate only to fused targets, not specific radars. Targets displayed here are fused coordinates (default gold color).
-
-![ZONE](gif/zones_select.gif)
-
-* **Intuitive Touch & Whole-Zone Dragging**:
-  * **Whole Zone Dragging**: Tap inside any selected zone to move the entire zone at once without needing to drag individual points.
-  * **Touchscreen Anti-Occlusion Remote Dragging**: When fine-tuning on mobile phones or tablets, your fingers will never block your sight! Tap to select a vertex or whole zone, then drag anywhere in the blank canvas—the target smoothly follows your touch relative to its position, making wall and furniture alignment effortless.
-  * **Quick Tap to Deselect**: A quick tap in empty canvas space cleanly cancels the current selection.
-* **Multi-Level View Toggle & Micro-Capsule Badges (View Mode & LOD)**:
-  * **View Mode Cycling**: Tap the quick view toggle button to cycle across modes: **🎯 Focus Active Type** (highlights selected zone type and dims others), **🌐 All Subtle Mode** (shows all zones crisply with minimal distraction), and **👁️‍🗨️ Pure & Hidden** (hides all zone polygons for an ultra-clean map).
-  * **Anti-Collision Micro-Badges**: Zone labels use semi-transparent micro-capsule pill badges, avoiding text collisions and visual clutter.
-
-#### 1. Detect Trigger Zones
-
-* Editing operations are the same as Monitor zones.
-
-* Delay: Supports setting a target entry delay. Enter the delay time (in seconds) in the `Dly` box to prevent false alarms caused by transient anomalies.
-
-* Automation: Once set, this automatically creates "Occupancy" and "Count" entities for automation.
-
-![ZONE](images/rmm_sensors.png)
-
-
-#### 2. Detect Exclude Zones
-
-![ZONE](images/zones_exam_2.png)
-
-* Editing operations are the same as Monitor zones.
-
-* Purpose: Fused targets falling into this zone will not be displayed or triggered. Use this to mask interference from fans, air conditioners, etc.
-
-#### 3. Entrance Zones
-
-![ZONE](images/zones_entrance.png)
-
-* Editing operations are the same as Monitor zones.
-
-* Purpose: Fused targets falling into this zone are immediately granted "Verified" status, bypassing the `verify` delay.
-
-#### 4. Stationary Hold
-
-![ZONE](images/zones_stationary.png)
-
-* Editing operations are the same as Monitor zones.
-
-* Individual occupancy tolerance duration can be defined via the `Dly` setting (unit: seconds). Leave blank or set to 0 to use the global `S_Hold` time by default.
-
-* Purpose: When a radar temporarily loses a signal within this zone due to absolute target stillness, the system locks a "Stationary Anchor" in place, continuing to report "occupied" to the smart home until the countdown expires.
-
-### C. ⚙️ Settings (Set)
-
-Click `Set` in the panel for global parameters.
-
-![SET](gif/set_panel.gif)
-
-* `Calibrate X`: Set the horizontal real-world physical distance by picking points on the floor plan.
-* `Calibrate Y`: Set the vertical real-world physical distance by picking points on the floor plan.
-
-* `Opacity`: Global panel opacity slider (adjusts transparency for Layout, Zones, and Set panels) to view the floor plan beneath.
-* `Stroke`: Zone outline stroke width slider, with proportional scaling across hardware and monitor zones to maintain a balanced visual hierarchy.
-
-* `Interval`: Backend polling and calculation refresh interval (in seconds).
-* `Merge`: Radar target fusion distance (in meters). Targets from different radars within this distance will be merged into one.
-
-* `Engine`: Target rendering engine. Switch between "Native Hardware (CSS, Recommended)" and "Kinematic Engine (Canvas)".
-* `Arrow`: Display target movement direction.
-* `Trails`: Display target movement trails.
-
-* `Color`: Custom color for fused targets.
-* `Tgt_H`: Target centroid height, used for 3D correction.
-
-* `Track`: When enabled, activates the advanced anti-ghosting and kinematic tracking engine; when disabled, it falls back to a simple stateless passthrough mode.
-* `Labels`: When enabled, displays tracking IDs (1, 2, 3...) directly on the solid target dots on the map.
-
-* `🚨 Fall Alert` (Visible only when 3D radars are present):
-  * **Master Switch**: Enable or disable spatial fall detection for this map.
-  * **H (Height Threshold)**: Centroid height above ground below which a suspected fall is flagged (unit: meters, default: 0.40m).
-  * **Dly (Confirmation Delay)**: Dwell duration required before triggering a confirmed fall alarm (unit: seconds, default: 5s). Automatically synchronized to hardware radar entities.
-
-* `Smooth`: Smoothness level of the target movement trajectory (Levels 1-10).
-* `Verify` (Verification Delay & Rules): Dual-track verification engine.
-  * **Checked (Standard Mode)**: Allows targets to spawn anywhere in the room, but they must pass the set observation period (seconds) to become verified, effectively filtering out random noise.
-  * **Unchecked (Strict Entrance Mode)**: Enables an absolute veto! Only targets entering through the "Entrance Zone" are valid. The underlying engine silently purges interference from flying bugs or fans appearing out of nowhere.
-* `Hbm_TTL` (Hibernation Time-To-Live): The duration (in hours) the system retains a "spatial snapshot" after a target temporarily disappears. Reappearing nearby instantly reactivates it with the original ID, ensuring tracking continuity. Recommended default: 12h.
-* `S_Hold` (Global Stationary Hold): The default tolerance hold time (in seconds) for global stationary zones.
-* `J_Base` (Base Spatial Tolerance): The physical limit (in meters) the system can tolerate for target point cloud jitter when stationary. Recommended range: 0.8 - 1.5 m.
-* `J_Speed` (Max Movement Speed): Sets the fastest possible human movement speed indoors (in meters/second), forming an impenetrable "dynamic anti-teleportation barrier." Recommended range: 2 - 3 m/s.
-* `Backup` / `Restore`: Export or import JSON configuration files for easy backup and migration.
-* `Clear Tracks`: Clears the tracking history and target IDs on the current map.
-
-![SET](gif/set_color.gif)
-
-
-## ❤️ Support the Project
-If you find this project helpful, please give it a **⭐️ Star**！
-
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/moe8383)
-[![支持我](https://img.shields.io/badge/赞助-爱发电-af46a1?style=for-the-badge&logo=alipay&logoColor=white)](https://afdian.com/a/moe8383)
-
-* Bug Reports: Please submit an [Issue](https://github.com/Moe8383/radar_map_manager/issues)。
-
-License: MIT
+Roomabouts remains licensed under the [MIT License](LICENSE).
