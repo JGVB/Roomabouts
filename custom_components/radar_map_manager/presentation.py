@@ -49,17 +49,23 @@ _MAP_CONFIG_KEYS = frozenset(
         "max_jump_base",
         "max_jump_speed",
         "merge_distance",
+        "panel_opacity",
+        "radar_radius",
+        "show_heading",
         "show_labels",
         "show_trails",
         "stationary_max_hold",
         "target_height",
+        "target_render_mode",
         "update_interval",
         "verify_delay",
+        "zone_stroke",
     }
 )
 _LAYOUT_KEYS = frozenset(
     {
         "ceiling_mount",
+        "enable_3d",
         "mirror_x",
         "mount_height",
         "origin_x",
@@ -86,7 +92,14 @@ _RADAR_ZONE_GROUPS = (
     "hw_stay_zones",
 )
 _BOOLEAN_CONFIG_KEYS = frozenset(
-    {"enable_tracking", "enable_verify_rule", "fall_alert_enabled", "show_labels", "show_trails"}
+    {
+        "enable_tracking",
+        "enable_verify_rule",
+        "fall_alert_enabled",
+        "show_heading",
+        "show_labels",
+        "show_trails",
+    }
 )
 
 
@@ -129,9 +142,11 @@ def _allow_scalar(value: object) -> str | bool | float | int | None:
 
 def _sanitize_config_value(key: str, value: object) -> str | bool | float | int | None:
     if key == "fused_color":
-        if isinstance(value, str) and re.fullmatch(r"#[0-9A-Fa-f]{6}", value):
+        if isinstance(value, str) and re.fullmatch(r"#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?", value):
             return value
         return None
+    if key == "target_render_mode":
+        return value if value in {"css", "canvas"} else None
     if key in _BOOLEAN_CONFIG_KEYS:
         return value if isinstance(value, bool) else None
     return _allow_scalar(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
@@ -236,7 +251,7 @@ def _sanitize_map(
                             if raw_revision is not None
                             else None
                         )
-                    elif key in {"ceiling_mount", "mirror_x"}:
+                    elif key in {"ceiling_mount", "enable_3d", "mirror_x"}:
                         value = raw_layout[key] if isinstance(raw_layout[key], bool) else None
                     else:
                         value = (

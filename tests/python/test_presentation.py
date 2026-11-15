@@ -34,8 +34,14 @@ class PresentationTests(unittest.TestCase):
             "maps": {
                 "default": {
                     "config": {
+                        "fused_color": "#112233CC",
                         "merge_distance": 0.8,
+                        "panel_opacity": 0.75,
+                        "radar_radius": 18,
+                        "show_heading": True,
                         "show_trails": True,
+                        "target_render_mode": "canvas",
+                        "zone_stroke": 0.8,
                         "device_pin": "PIN-CANARY-DO-NOT-STREAM",
                         "unknown_secret": "TOKEN-CANARY-DO-NOT-STREAM",
                     },
@@ -54,7 +60,12 @@ class PresentationTests(unittest.TestCase):
             "radars": {
                 "radar": {
                     "map_group": "default",
-                    "layout": {"origin_x": 50, "origin_y": 50, "rotation": 0},
+                    "layout": {
+                        "enable_3d": False,
+                        "origin_x": 50,
+                        "origin_y": 50,
+                        "rotation": 0,
+                    },
                     "device_pin": "RADAR-PIN-CANARY",
                     "radar_ip": "198.51.100.44",
                     "targets": [{"x": 997, "y": 996}],
@@ -136,9 +147,28 @@ class PresentationTests(unittest.TestCase):
         ):
             self.assertNotIn(canary, serialized)
         self.assertEqual(snapshot["map"]["mapId"], "default")
+        self.assertEqual(
+            snapshot["map"]["config"],
+            {
+                "fused_color": "#112233CC",
+                "merge_distance": 0.8,
+                "panel_opacity": 0.75,
+                "radar_radius": 18,
+                "show_heading": True,
+                "show_trails": True,
+                "target_render_mode": "canvas",
+                "zone_stroke": 0.8,
+            },
+        )
         self.assertTrue(
             all(item["sensorId"].startswith("source-") for item in snapshot["map"]["radars"])
         )
+        configured_radar = next(
+            item
+            for item in snapshot["map"]["radars"]
+            if "enable_3d" in item["layout"]
+        )
+        self.assertFalse(configured_radar["layout"]["enable_3d"])
         sourced_track = next(track for track in snapshot["tracks"] if track["sourceRefs"])
         self.assertTrue(sourced_track["sourceRefs"][0].startswith("source-"))
 
