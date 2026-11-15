@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from hashlib import sha256
 import importlib
 import json
@@ -107,26 +108,40 @@ def inactive(sensor="radar-a", sequence=1, slot=1, generation="source-g1", time_
     )
 
 
-def source_status(status, reason, *, sequence, generation="source-g1", time_ms=0):
+def source_status(
+    status,
+    reason,
+    *,
+    sequence,
+    sensor="radar-a",
+    generation="source-g1",
+    time_ms=0,
+):
     return observation.make_observation(
         "source-status",
         generation_id=generation,
         sequence=sequence,
         logical_time_ms=time_ms,
-        sensor_id="radar-a",
+        sensor_id=sensor,
         pose_revision="pose-1",
         status=status,
         reason=reason,
     )
 
 
-def generation_reset(*, sequence=0, generation="source-g2", time_ms=100):
+def generation_reset(
+    *,
+    sequence=0,
+    sensor="radar-a",
+    generation="source-g2",
+    time_ms=100,
+):
     return observation.make_observation(
         "generation-reset",
         generation_id=generation,
         sequence=sequence,
         logical_time_ms=time_ms,
-        sensor_id="radar-a",
+        sensor_id=sensor,
         pose_revision="pose-1",
         reason="source-restart",
     )
@@ -396,6 +411,73 @@ class FusionEngineTests(unittest.TestCase):
 
         self.assertEqual(runtime.generation_id, once)
         self.assertEqual(once, "snapshot-g2")
+
+    def test_non_privacy_reset_preserves_truthful_source_health(self):
+        engine, runtime, _ = self.make_engine()
+        runtime.set_source_health("offline-radar", "offline", "unavailable", 10)
+        runtime.set_source_health("degraded-radar", "degraded", "partial-sample", 11)
+        expected_health = deepcopy(runtime.source_health)
+
+        engine.reset("explicit-reset", logical_time_ms=20)
+
+        self.assertEqual(runtime.source_health, expected_health)
+
+        engine.reset("privacy-clear", logical_time_ms=30)
+        self.assertEqual(runtime.source_health, {})
+
+    def test_multiple_offline_and_reset_statuses_survive_batch_resets(self):
+        engine, runtime, _ = self.make_engine(
+            configuration(("radar-a", "radar-b")),
+            ids=tuple(f"snapshot-g{index}" for index in range(1, 8)),
+        )
+
+        engine.update(
+            [
+                source_status(
+                    "offline",
+                    "unavailable",
+                    sensor="radar-a",
+                    sequence=0,
+                    generation="a-g1",
+                    time_ms=100,
+                ),
+                source_status(
+                    "offline",
+                    "unavailable",
+                    sensor="radar-b",
+                    sequence=0,
+                    generation="b-g1",
+                    time_ms=100,
+                ),
+            ],
+            logical_time_ms=100,
+        )
+
+        self.assertEqual(runtime.source_health["radar-a"]["status"], "offline")
+        self.assertEqual(runtime.source_health["radar-b"]["status"], "offline")
+
+        engine.update(
+            [
+                generation_reset(
+                    sensor="radar-a",
+                    sequence=0,
+                    generation="a-g2",
+                    time_ms=200,
+                ),
+                generation_reset(
+                    sensor="radar-b",
+                    sequence=0,
+                    generation="b-g2",
+                    time_ms=200,
+                ),
+            ],
+            logical_time_ms=200,
+        )
+
+        self.assertEqual(runtime.source_health["radar-a"]["status"], "degraded")
+        self.assertEqual(runtime.source_health["radar-a"]["reason"], "restart")
+        self.assertEqual(runtime.source_health["radar-b"]["status"], "degraded")
+        self.assertEqual(runtime.source_health["radar-b"]["reason"], "restart")
 
     def test_processing_error_fails_closed_instead_of_streaming_stale_coordinates(self):
         engine, runtime, coordinator = self.make_engine()

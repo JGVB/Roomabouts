@@ -99,6 +99,27 @@ class ObservationContractTests(unittest.TestCase):
         self.assertIsNotNone(guard.accept(valid_target(sequence=6)))
         self.assertIsNotNone(guard.accept(valid_target(sequence=0, generationId="g2")))
 
+    def test_sequence_guard_rejects_time_regression_and_clear_resets_both_guards(self):
+        guard = observation.ObservationSequenceGuard()
+        self.assertIsNotNone(guard.accept(valid_target(sequence=5, logicalTimeMs=100)))
+        self.assertIsNone(guard.accept(valid_target(sequence=6, logicalTimeMs=99)))
+        self.assertIsNotNone(guard.accept(valid_target(sequence=6, logicalTimeMs=100)))
+        self.assertIsNotNone(guard.accept(valid_target(sequence=7, logicalTimeMs=100)))
+
+        other = valid_target(
+            sensorId="other-radar",
+            generationId="other-generation",
+            sequence=8,
+            logicalTimeMs=800,
+        )
+        self.assertIsNotNone(guard.accept(other))
+        guard.clear("living-room-radar")
+        self.assertIsNotNone(guard.accept(valid_target(sequence=0, logicalTimeMs=0)))
+        self.assertIsNone(guard.accept({**other, "sequence": 7, "logicalTimeMs": 700}))
+
+        guard.clear()
+        self.assertIsNotNone(guard.accept({**other, "sequence": 0, "logicalTimeMs": 0}))
+
     def test_source_slot_is_diagnostic_not_an_identity_field(self):
         one = observation.validate_observation(valid_target(sourceSlot=1))
         relabelled = observation.validate_observation(valid_target(sourceSlot=9, sequence=5))

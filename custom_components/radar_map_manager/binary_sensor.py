@@ -249,10 +249,22 @@ class RadarFallSensor(CoordinatorEntity, BinarySensorEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         fused_targets = self._runtime_state.get_map_targets(self._map_group)
+        previous_state = (
+            self._is_on,
+            self._fall_status,
+            self._affected_count,
+            self._last_detected,
+        )
         affected_count = 0
         is_fall_detected = False
         is_suspected = False
         for t in fused_targets:
+            sources = t.get("sources", [])
+            lifecycle = t.get("lifecycle")
+            if lifecycle in {"tentative", "fading"}:
+                continue
+            if any(source in {"hibernating", "unverified"} for source in sources):
+                continue
             posture = t.get("posture")
             if posture == 'fallen':
                 is_fall_detected = True
@@ -262,12 +274,19 @@ class RadarFallSensor(CoordinatorEntity, BinarySensorEntity):
                 affected_count += 1
         if is_fall_detected:
             self._fall_status = "confirmed"
-            self._last_detected = time.time()
+            if not self._is_on:
+                self._last_detected = time.time()
         elif is_suspected:
             self._fall_status = "suspected"
         else:
             self._fall_status = "normal"
         self._affected_count = affected_count
-        if self._is_on != is_fall_detected:
-            self._is_on = is_fall_detected
-        self.async_write_ha_state()
+        self._is_on = is_fall_detected
+        current_state = (
+            self._is_on,
+            self._fall_status,
+            self._affected_count,
+            self._last_detected,
+        )
+        if current_state != previous_state:
+            self.async_write_ha_state()

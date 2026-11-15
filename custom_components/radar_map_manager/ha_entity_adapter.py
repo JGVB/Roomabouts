@@ -192,13 +192,7 @@ class HAEntityAdapter:
         for key in [key for key in self._last_emitted_tokens if key[0] == sensor_id]:
             del self._last_emitted_tokens[key]
         self._slot_active = {key for key in self._slot_active if key[0] != sensor_id}
-        entity_prefix = f"sensor.{entity_slug(sensor_id)}_target_"
-        for entity_id in [
-            entity_id
-            for entity_id in self._entity_tokens
-            if entity_id.startswith(entity_prefix)
-        ]:
-            del self._entity_tokens[entity_id]
+        self._clear_entity_token_cache(sensor_id)
         index = self._generation_indexes.get(sensor_id, 0) + 1
         self._generation_indexes[sensor_id] = index
         generation_id = self._generation_factory(sensor_id, index)
@@ -434,6 +428,10 @@ class HAEntityAdapter:
                         pose_revision=self._pose_revision(radar_config),
                     )
                 )
+                # A pause is a source boundary.  HA may retain unchanged entity
+                # states while paused, so their tokens must be reconsidered as
+                # fresh input immediately after unpausing.
+                self._clear_entity_token_cache(sensor_id)
                 continue
 
             pose_revision = self._pose_revision(radar_config)
@@ -568,6 +566,15 @@ class HAEntityAdapter:
                     )
                 )
         return observations
+
+    def _clear_entity_token_cache(self, sensor_id: str) -> None:
+        entity_prefix = f"sensor.{entity_slug(sensor_id)}_target_"
+        for entity_id in [
+            entity_id
+            for entity_id in self._entity_tokens
+            if entity_id.startswith(entity_prefix)
+        ]:
+            del self._entity_tokens[entity_id]
 
     @staticmethod
     def _pose_revision(radar_config: Mapping[str, Any]) -> str:

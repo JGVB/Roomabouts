@@ -160,6 +160,46 @@ class StorageMigrationTests(unittest.TestCase):
         self.assertNotIn("targets", migrated["maps"]["default"])
         self.assertNotIn("device_pin", migrated["radars"]["radar"])
 
+    def test_store_migration_hook_rejects_present_non_mapping_data(self):
+        coordinator = load_coordinator_module()
+        store = object.__new__(coordinator.RoomaboutsStore)
+
+        for corrupt in (None, [], "corrupt", 0, False):
+            with self.subTest(corrupt=corrupt), self.assertRaises(TypeError):
+                asyncio.run(store._async_migrate_func(1, 0, corrupt))
+
+        with self.assertRaises(TypeError):
+            asyncio.run(store._async_migrate_func(1, ["legacy-two-argument-call"]))
+
+    def test_coordinator_only_initializes_none_and_never_overwrites_corrupt_store(self):
+        coordinator_module = load_coordinator_module()
+
+        class LoadStore:
+            def __init__(self, value):
+                self.value = value
+                self.saved = []
+
+            async def async_load(self):
+                return self.value
+
+            async def async_save(self, value):
+                self.saved.append(deepcopy(value))
+
+        fresh = coordinator_module.RadarCoordinator(None)
+        fresh_store = LoadStore(None)
+        fresh._store = fresh_store
+        asyncio.run(fresh.async_load())
+        self.assertEqual(len(fresh_store.saved), 1)
+
+        for corrupt in ([], "corrupt", 0, False):
+            with self.subTest(corrupt=corrupt):
+                instance = coordinator_module.RadarCoordinator(None)
+                store = LoadStore(corrupt)
+                instance._store = store
+                with self.assertRaises(TypeError):
+                    asyncio.run(instance.async_load())
+                self.assertEqual(store.saved, [])
+
     def test_coordinator_save_sanitizes_and_new_radar_has_no_exclusive_auth_state(self):
         coordinator_module = load_coordinator_module()
         coordinator = coordinator_module.RadarCoordinator(None)

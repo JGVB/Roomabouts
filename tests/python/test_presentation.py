@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import types
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -346,28 +347,70 @@ class PresentationTests(unittest.TestCase):
         sys.modules.pop("custom_components.radar_map_manager.binary_sensor", None)
         binary_module = importlib.import_module("custom_components.radar_map_manager.binary_sensor")
 
+        targets = [
+            {
+                "id": "tentative-secret-id",
+                "posture": "fallen",
+                "lifecycle": "tentative",
+                "sources": ["private-radar:1"],
+            },
+            {
+                "id": "fading-secret-id",
+                "posture": "fallen",
+                "lifecycle": "fading",
+                "sources": ["private-radar:2"],
+            },
+            {
+                "id": "hibernating-secret-id",
+                "posture": "fallen",
+                "lifecycle": "confirmed",
+                "sources": ["hibernating"],
+            },
+            {
+                "id": "unverified-secret-id",
+                "posture": "fallen",
+                "lifecycle": "confirmed",
+                "sources": ["unverified"],
+            },
+            {
+                "id": "target-secret-id",
+                "x": 51,
+                "y": 49,
+                "posture": "fallen",
+                "lifecycle": "confirmed",
+                "abs_height": 0.2,
+                "fall_duration": 8,
+                "sources": ["private-radar:7"],
+            },
+        ]
         entity = object.__new__(binary_module.RadarFallSensor)
         entity._runtime_state = types.SimpleNamespace(
-            get_map_targets=lambda map_id: [
-                {
-                    "id": "target-secret-id",
-                    "x": 51,
-                    "y": 49,
-                    "posture": "fallen",
-                    "abs_height": 0.2,
-                    "fall_duration": 8,
-                    "sources": ["private-radar:7"],
-                }
-            ]
+            get_map_targets=lambda map_id: targets
         )
         entity._map_group = "default"
         entity._is_on = False
         entity._fall_status = "normal"
         entity._last_detected = None
         entity._affected_count = 0
-        entity.async_write_ha_state = lambda: None
+        writes = []
+        entity.async_write_ha_state = lambda: writes.append(entity.extra_state_attributes)
 
-        entity._handle_coordinator_update()
+        with patch.object(binary_module.time, "time", side_effect=[100.0, 200.0]):
+            entity._handle_coordinator_update()
+            first_detected = entity._last_detected
+            entity._handle_coordinator_update()
+            repeated_detected = entity._last_detected
+            targets.clear()
+            entity._handle_coordinator_update()
+            targets.append(
+                {
+                    "id": "next-confirmed-fall",
+                    "posture": "fallen",
+                    "lifecycle": "confirmed",
+                    "sources": ["private-radar:9"],
+                }
+            )
+            entity._handle_coordinator_update()
         attributes = entity.extra_state_attributes
 
         self.assertEqual(
@@ -375,6 +418,10 @@ class PresentationTests(unittest.TestCase):
             {"map_group", "status", "affected_count", "last_detected"},
         )
         self.assertEqual(attributes["affected_count"], 1)
+        self.assertEqual(first_detected, 100.0)
+        self.assertEqual(repeated_detected, first_detected)
+        self.assertEqual(attributes["last_detected"], 200.0)
+        self.assertEqual(len(writes), 3)
         self.assertNotIn("target-secret-id", str(attributes))
         self.assertNotIn("private-radar", str(attributes))
 

@@ -6,18 +6,26 @@ from .runtime_state import DATA_VERSION, migrate_storage
 _LOGGER = logging.getLogger(__name__)
 STORAGE_VERSION = 2
 STORAGE_KEY = DOMAIN
+_MISSING_MIGRATION_DATA = object()
 
 
 class RoomaboutsStore(Store):
     """Home Assistant Store with an explicit v1-to-v2 privacy migration."""
 
-    async def _async_migrate_func(self, old_major_version, old_minor_version, old_data=None):
+    async def _async_migrate_func(
+        self,
+        old_major_version,
+        old_minor_version,
+        old_data=_MISSING_MIGRATION_DATA,
+    ):
         # Older HA releases call migration with (version, data); current releases
         # call it with (version, minor_version, data).
-        if old_data is None:
+        if old_data is _MISSING_MIGRATION_DATA:
             old_data = old_minor_version
         if old_major_version not in (1, STORAGE_VERSION):
             raise NotImplementedError
+        if not isinstance(old_data, Mapping):
+            raise TypeError("Roomabouts stored configuration must be an object")
         clean, _removed = migrate_storage(old_data)
         return clean
 
@@ -78,11 +86,15 @@ class RadarCoordinator:
                 type(e).__name__,
             )
             raise
-        if raw_data is None or not isinstance(raw_data, dict):
+        if raw_data is None:
             _LOGGER.info("RMM: Initializing fresh data.")
             self.data = self._get_empty_data()
             await self.async_save()
             return
+        if not isinstance(raw_data, Mapping):
+            # A present but malformed store is not a fresh install.  Refuse to
+            # overwrite it so the documented backup/rollback path remains usable.
+            raise TypeError("Roomabouts stored configuration must be an object")
         self.data, removed_paths = migrate_storage(raw_data)
         if "maps" not in self.data: self.data["maps"] = {}
         if "default" not in self.data["maps"]:

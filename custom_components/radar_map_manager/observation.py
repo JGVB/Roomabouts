@@ -231,23 +231,34 @@ class ObservationSequenceGuard:
 
     def __init__(self) -> None:
         self._last_sequence: dict[tuple[str, str], int] = {}
+        self._last_logical_time_ms: dict[tuple[str, str], float] = {}
 
     def accept(self, value: object) -> dict[str, Any] | None:
         observation = validate_observation(value)
         key = (observation["sensorId"], observation["generationId"])
-        previous = self._last_sequence.get(key)
-        if previous is not None and observation["sequence"] <= previous:
+        previous_sequence = self._last_sequence.get(key)
+        previous_time = self._last_logical_time_ms.get(key)
+        if previous_sequence is not None and observation["sequence"] <= previous_sequence:
+            return None
+        if previous_time is not None and observation["logicalTimeMs"] < previous_time:
             return None
         self._last_sequence[key] = observation["sequence"]
+        self._last_logical_time_ms[key] = observation["logicalTimeMs"]
         return observation
 
     def clear(self, sensor_id: str | None = None) -> None:
         if sensor_id is None:
             self._last_sequence.clear()
+            self._last_logical_time_ms.clear()
             return
         self._last_sequence = {
             key: sequence
             for key, sequence in self._last_sequence.items()
+            if key[0] != sensor_id
+        }
+        self._last_logical_time_ms = {
+            key: logical_time_ms
+            for key, logical_time_ms in self._last_logical_time_ms.items()
             if key[0] != sensor_id
         }
 

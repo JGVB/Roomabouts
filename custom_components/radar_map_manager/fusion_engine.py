@@ -2,6 +2,7 @@ import logging
 import json
 import math
 import time
+from copy import deepcopy
 
 from .observation import (
     GENERATION_RESET,
@@ -45,7 +46,9 @@ class FusionEngine:
         now_ms = self._logical_time(logical_time_ms)
         if clear_observations is None:
             clear_observations = reason == "privacy-clear"
-        active_sources = {key[0] for key in self._active_observations}
+        preserved_source_health = (
+            {} if clear_observations else deepcopy(self.runtime_state.source_health)
+        )
         self._history.clear()
         if clear_observations:
             self._active_observations.clear()
@@ -53,13 +56,7 @@ class FusionEngine:
         self._sequence_guard.clear()
         self.runtime_state.begin_generation(reason, now_ms)
         if not clear_observations:
-            for sensor_id in active_sources:
-                self.runtime_state.set_source_health(
-                    sensor_id,
-                    "online",
-                    "available",
-                    now_ms,
-                )
+            self.runtime_state.source_health.update(preserved_source_health)
 
     def update(self, observations=None, logical_time_ms=None):
         """Consume normalized observations and update ephemeral fused state."""

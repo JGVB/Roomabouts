@@ -243,6 +243,46 @@ class HAEntityAdapterTests(unittest.TestCase):
         self.assertEqual(after["generationId"], reset["generationId"])
         self.assertEqual(after["positionMeters"], {"x": 1.0, "y": 2.0})
 
+    def test_unpause_immediately_reingests_unchanged_entity_states(self):
+        states = {
+            "sensor.radar_target_1_x": FakeState("1", "m"),
+            "sensor.radar_target_1_y": FakeState("2", "m"),
+        }
+        adapter = self.make_adapter()
+        hass = FakeHass(states)
+
+        first = adapter.collect(
+            hass,
+            {"radar": {"target_count": 1, "paused": False}},
+            logical_time_ms=0,
+        )
+        paused = adapter.collect(
+            hass,
+            {"radar": {"target_count": 1, "paused": True}},
+            logical_time_ms=10,
+        )
+        resumed = adapter.collect(
+            hass,
+            {"radar": {"target_count": 1, "paused": False}},
+            logical_time_ms=20,
+        )
+
+        self.assertEqual(targets(first)[0]["positionMeters"], {"x": 1.0, "y": 2.0})
+        self.assertTrue(any(item["kind"] == "target-inactive" for item in paused))
+        self.assertTrue(
+            any(
+                item["kind"] == "source-status" and item["status"] == "offline"
+                for item in paused
+            )
+        )
+        self.assertEqual(targets(resumed)[0]["positionMeters"], {"x": 1.0, "y": 2.0})
+        self.assertTrue(
+            any(
+                item["kind"] == "source-status" and item["status"] == "online"
+                for item in resumed
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
