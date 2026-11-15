@@ -79,7 +79,7 @@ class RadarZoneCountSensor(CoordinatorEntity, SensorEntity):
         self.config = config
         self._attr_has_entity_name = False        
         map_str = config["map_group"].replace("_", " ").title()
-        self._attr_name = f"RMM {map_str} {config['zone_name']} Count"
+        self._attr_name = f"Roomabouts {map_str} {config['zone_name']} Count"
         self.entity_id = f"sensor.{unique_id}"
         self._attr_icon = "mdi:account-group"
         self._map_group = config["map_group"]
@@ -93,7 +93,7 @@ class RadarZoneCountSensor(CoordinatorEntity, SensorEntity):
         self.config = new_config
         self._points = new_config["points"]
         map_str = new_config["map_group"].replace("_", " ").title()
-        self._attr_name = f"RMM {map_str} {new_config['zone_name']} Count"
+        self._attr_name = f"Roomabouts {map_str} {new_config['zone_name']} Count"
         self.async_write_ha_state()
     @callback
     def _handle_coordinator_update(self) -> None:

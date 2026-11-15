@@ -70,7 +70,7 @@ class FusionEngine:
             now_ms = self._logical_time(logical_time_ms)
             if data.pop("_force_reset_history", False):
                 self.reset("explicit-reset", now_ms)
-                _LOGGER.info("RMM: Tracking history has been manually reset.")
+                _LOGGER.info("Roomabouts: Tracking history has been manually reset.")
             fingerprint = self._configuration_fingerprint(data)
             if self._config_fingerprint is None:
                 self._config_fingerprint = fingerprint
@@ -94,7 +94,7 @@ class FusionEngine:
                 self.runtime_state.map_targets.clear()
                 self.runtime_state.source_health.clear()
             _LOGGER.error(
-                "RMM: Fusion update failed closed (%s); runtime coordinates were cleared.",
+                "Roomabouts: Fusion update failed closed (%s); runtime coordinates were cleared.",
                 type(e).__name__,
             )
             return {}

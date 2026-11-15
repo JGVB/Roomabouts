@@ -62,7 +62,7 @@ class RadarCoordinator:
         self.data = self._get_empty_data()
         self._listeners = []
         self.last_update_success = True 
-        self.name = "RadarMapManager Coordinator"
+        self.name = "Roomabouts Coordinator"
     def _get_empty_data(self):
         return {
             "version": DATA_VERSION,
@@ -100,19 +100,19 @@ class RadarCoordinator:
             try:
                 callback()
             except Exception as e:
-                _LOGGER.error("RMM: Update listener failed (%s).", type(e).__name__)
+                _LOGGER.error("Roomabouts: Update listener failed (%s).", type(e).__name__)
     async def async_load(self):
         try:
             raw_data = await self._store.async_load()
         except Exception as e:
             # Fail closed and preserve the on-disk store for backup/rollback.
             _LOGGER.error(
-                "RMM: Storage load or migration failed (%s); existing data was preserved.",
+                "Roomabouts: Storage load or migration failed (%s); existing data was preserved.",
                 type(e).__name__,
             )
             raise
         if raw_data is None:
-            _LOGGER.info("RMM: Initializing fresh data.")
+            _LOGGER.info("Roomabouts: Initializing fresh data.")
             self.data = self._get_empty_data()
             await self.async_save()
             return
@@ -151,14 +151,14 @@ class RadarCoordinator:
         self.data["version"] = DATA_VERSION
         if removed_paths or self.data != raw_data:
             await self.async_save()
-            _LOGGER.info("RMM: Migrated persistent configuration to V%s.", DATA_VERSION)
+            _LOGGER.info("Roomabouts: Migrated persistent configuration to V%s.", DATA_VERSION)
         else:
-            _LOGGER.info("RMM: Data loaded (V%s).", self.data.get("version", DATA_VERSION))
+            _LOGGER.info("Roomabouts: Data loaded (V%s).", self.data.get("version", DATA_VERSION))
     async def async_save(self):
         self.data, removed_paths = migrate_storage(self.data)
         if removed_paths:
             _LOGGER.warning(
-                "RMM: Refused to persist %s runtime or secret field(s).",
+                "Roomabouts: Refused to persist %s runtime or secret field(s).",
                 len(removed_paths),
             )
         await self._store.async_save(self.data)

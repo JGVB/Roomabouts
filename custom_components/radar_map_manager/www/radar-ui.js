@@ -481,7 +481,7 @@ export class RadarUI {
                     rootEl.style.setProperty(key, config.style[key]);
                 });
             } catch (e) {
-                console.warn("RMM: Failed to apply custom styles", e);
+                console.warn("Roomabouts: Failed to apply custom styles", e);
             }
         }
         this.renderPanel(state, config);

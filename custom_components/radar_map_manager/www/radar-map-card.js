@@ -85,7 +85,7 @@ class RadarMapCardNative extends HTMLElement {
     }
     set hass(h) {
         if (this.state.rawHass && this.state.rawHass.connection && h && h.connection && this.state.rawHass.connection !== h.connection) {
-            console.log("[RMM] HA Connection changed (Wake up from sleep). Resubscribing...");
+            console.log("[Roomabouts] HA Connection changed (wake from sleep). Resubscribing...");
             if (this._streamUnsubscribe) { this._streamUnsubscribe(); this._streamUnsubscribe = null; }
             this._streamSubscribing = false;
         }
@@ -218,7 +218,7 @@ class RadarMapCardNative extends HTMLElement {
                     that.renderer.draw(that.state, that.config, that._hass);
                     alert(that.editor.t("zone_saved"));
                 } catch (err) {
-                    console.error("RMM: onSaveZoneConfig failed:", err);
+                    console.error("Roomabouts: onSaveZoneConfig failed:", err);
                     alert(that.editor.t("ha_reject") + (err.message || err));
                 }
             },
@@ -257,7 +257,7 @@ class RadarMapCardNative extends HTMLElement {
                     that.fetchData(true);
                     alert(that.editor.t("layout_saved"));
                 } catch (err) {
-                    console.error("RMM: onSaveLayout failed:", err);
+                    console.error("Roomabouts: onSaveLayout failed:", err);
                     alert(that.editor.t("ha_reject") + (err.message || err));
                 }
             },
@@ -340,7 +340,7 @@ class RadarMapCardNative extends HTMLElement {
             await this._hass.callService('radar_map_manager', 'update_radar_zone', payload);
             this.state.hasUnsavedChanges = false;
         } catch (err) {
-            console.error("RMM: zone save failed:", err);
+            console.error("Roomabouts: zone save failed:", err);
             throw err;
         }
     }

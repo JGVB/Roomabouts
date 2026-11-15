@@ -29,14 +29,14 @@ class RadarProcessor:
         self.current_snapshot = None
         self._master_entity_ids = set()
     async def async_start(self):
-        _LOGGER.debug("RMM: Processor started.")
+        _LOGGER.debug("Roomabouts: Processor started.")
     async def async_stop(self):
         self._fusion_engine.reset("privacy-clear")
         self.current_snapshot = None
         for entity_id in self._master_entity_ids:
             self.hass.states.async_remove(entity_id)
         self._master_entity_ids.clear()
-        _LOGGER.debug("RMM: Processor stopped.")
+        _LOGGER.debug("Roomabouts: Processor stopped.")
     def reset(self, reason="explicit-reset", *, logical_time_ms=None):
         self._fusion_engine.reset(reason, logical_time_ms)
         self.current_snapshot = None
@@ -66,7 +66,7 @@ class RadarProcessor:
                 )
                 observations = ()
                 _LOGGER.error(
-                    "RMM: Entity adaptation failed closed (%s); runtime coordinates were cleared.",
+                    "Roomabouts: Entity adaptation failed closed (%s); runtime coordinates were cleared.",
                     type(err).__name__,
                 )
         fused_by_map = self._fusion_engine.update(
@@ -108,7 +108,7 @@ class RadarProcessor:
                 {
                     "map_group": map_id,
                     "count": active_count,
-                    "friendly_name": f"RMM {map_id} Master",
+                    "friendly_name": f"Roomabouts {map_id} Master",
                     "icon": "mdi:radar",
                     "generation_id": self.runtime_state.generation_id,
                     "coordinate_stream": "administrator-only",

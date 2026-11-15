@@ -56,7 +56,7 @@ class RadarBinarySensorManager:
                 if uid_str not in desired_sensors:
                     entries_to_remove.append(entity_id)
         for entity_id in entries_to_remove:
-            _LOGGER.info(f"RMM: Removing redundant entity {entity_id}")
+            _LOGGER.info(f"Roomabouts: Removing redundant entity {entity_id}")
             ent_reg.async_remove(entity_id)
             for uid, sensor in list(self.sensors.items()):
                 if sensor.entity_id == entity_id:
@@ -87,7 +87,7 @@ class RadarZoneSensor(CoordinatorEntity, BinarySensorEntity):
         self._is_on = False
         self._attr_has_entity_name = False
         map_str = config['map_group'].replace("_", " ").title()
-        self._attr_name = f"RMM {map_str} {config['name']} Occupancy"
+        self._attr_name = f"Roomabouts {map_str} {config['name']} Occupancy"
         self.entity_id = f"binary_sensor.{unique_id}"
         self._attr_device_class = BinarySensorDeviceClass.OCCUPANCY
         self._last_triggered = 0
@@ -101,7 +101,7 @@ class RadarZoneSensor(CoordinatorEntity, BinarySensorEntity):
     def update_config(self, new_config):
         self.config = new_config
         map_str = new_config['map_group'].replace("_", " ").title()
-        self._attr_name = f"RMM {map_str} {new_config['name']} Occupancy"
+        self._attr_name = f"Roomabouts {map_str} {new_config['name']} Occupancy"
         self.async_write_ha_state()
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -193,7 +193,7 @@ class RadarFallSensorManager:
             group_slug = slugify(map_group)
             uid = f"rmm_{group_slug}_fall_alert"
             desired_sensors[uid] = {
-                'name': f"RMM {map_group} Fall Alert",
+                'name': f"Roomabouts {map_group} Fall Alert",
                 'map_group': map_group
             }
         ent_reg = er.async_get(self.hass)

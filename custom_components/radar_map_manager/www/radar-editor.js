@@ -433,7 +433,7 @@ export class RadarEditor {
                 radar_name: rName,
                 paused: nextPaused
             }).catch(err => {
-                console.error("RMM: Failed to set radar pause state:", err);
+                console.error("Roomabouts: Failed to set radar pause state:", err);
                 state.data[rName].paused = !nextPaused;
                 this.ui.updateLayoutInputs(state, state.hass);
                 this.renderer.draw(state, config, state.hass);
@@ -545,7 +545,7 @@ export class RadarEditor {
                     if (ptX) ptX.value = '';
                     if (ptY) ptY.value = '';
                     if(callbacks.resetSelection) {
-                        try { callbacks.resetSelection(); } catch(e) { console.warn("RMM: resetSelection ignored:", e); }
+                        try { callbacks.resetSelection(); } catch(e) { console.warn("Roomabouts: resetSelection ignored:", e); }
                     }
                     if(callbacks.onSaveZoneConfig) callbacks.onSaveZoneConfig(); 
                 }
@@ -579,7 +579,7 @@ export class RadarEditor {
                 if (ptX) ptX.value = '';
                 if (ptY) ptY.value = '';
                 if(callbacks.resetSelection) {
-                    try { callbacks.resetSelection(); } catch(e) { console.warn("RMM: resetSelection ignored:", e); }
+                    try { callbacks.resetSelection(); } catch(e) { console.warn("Roomabouts: resetSelection ignored:", e); }
                 }
                 if(callbacks.onSaveZoneConfig) callbacks.onSaveZoneConfig(); 
             } 
@@ -957,7 +957,7 @@ export class RadarEditor {
                                     }
                                 }
                             } catch (e) {
-                                console.error("RMM Calib Error:", e);
+                                console.error("Roomabouts calibration error:", e);
                             } finally {
                                 state.isCalibratingMap = null; state.isAddingNew = false; this.isAddingNew = false;
                                 state.points = []; 
