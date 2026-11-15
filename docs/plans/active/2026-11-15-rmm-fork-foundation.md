@@ -1,6 +1,6 @@
 # Roomabouts RMM Fork Foundation and Personal One-Room Proof
 
-- Status: Phase 1 code and review complete — pushed CI pending
+- Status: Phase 1 complete — Phase 2 not started
 - Plan date: 2026-11-15
 - Coordinator: Roomabouts coordinator
 - Implementation branch/worktree: `codex/fork-foundation` at `/Users/jvanbev/Documents/Codebase/Roomabouts`
@@ -339,9 +339,11 @@ Exit gate:
 
 #### Phase 1 implementation evidence
 
-- Implementation commits run from `601425d` through `ed2eb81` on `codex/fork-foundation`; the fork-governance baseline is `6427528`.
+- Implementation commits run from `601425d` through `166fe7f` on `codex/fork-foundation`; the fork-governance baseline is `6427528`.
 - The final local gate passes Python compilation, 111 Python tests, Deno checking, 10 Deno tests, JSON/YAML parsing, `git diff --check`, and `git fsck --strict`. The deterministic Python and Deno suites pass twice on the final code tree.
-- Independent core, security/import, and frontend-safety reviews returned `APPROVE` after their requested corrections were integrated. A fresh integrated production-readiness review also returned `APPROVE` at `ed2eb81`; the pushed GitHub Actions quality job remains the final Phase 1 gate at the time of this entry.
+- Independent core, security/import, and frontend-safety reviews returned `APPROVE` after their requested corrections were integrated. A fresh integrated production-readiness review also returned `APPROVE` at `ed2eb81`.
+- The first pushed Quality run exposed that `ubuntu-latest` had moved to Ubuntu 26.04, for which the exact Python 3.14.3 toolcache build was unavailable. Commit `166fe7f` pins Ubuntu 24.04 and current Node 24-based action revisions; the resulting [Quality run 43764853168](https://github.com/JGVB/Roomabouts/actions/runs/43764853168) passed.
+- The separate inherited HACS validation workflow still fails only because GitHub Issues are disabled and the fork has no repository topics. Public HACS submission is outside this plan; those public repository settings must be corrected before any distribution work claims a green HACS gate.
 - Backend presentation tests own Phase 1 snapshot sanitization. Browser semantic adaptation is deliberately Phase 2; `tests/js/stream-adapter.test.js` was therefore not created in Phase 1.
 - The inherited browser Backup/Restore UI is temporarily unavailable because the live `RoomaboutsSnapshotV1` stream is not a configuration document. Phase 2 must provide a config-only adapter before that UI can safely return.
 - Static checks and pure tests do not claim real Home Assistant behavior. Setup/unload, actual administrator authorization, `.storage`, Recorder, source-entity history, and socket/subscription behavior remain Phase 4/5 protocol work.
