@@ -5,22 +5,11 @@ export class RadarRenderer {
         this.root = root;
         this.canvas = null;
         this.ctx = null;
-        this._activePointCloud = null;
-        this.pointCloudData = [];
         this.animFrameId = null;
         this.currentConfig = null;
         this._isCanvasCleared = false;
         this._domCache = {};
         this.targetFilter = new TargetFilter(); 
-    }
-    get activePointCloud() {
-        return this._activePointCloud;
-    }
-    set activePointCloud(val) {
-        this._activePointCloud = val;
-        if (val && val.points && val.points.length > 0) {
-            this.wakeRenderLoop();
-        }
     }
     wakeRenderLoop() {
         if (!this.canvas || !this.ctx) return;
@@ -77,10 +66,9 @@ export class RadarRenderer {
         const isCanvasMode = (renderMode === 'canvas');
         const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
         const activeTargets = (isCanvasMode && this.targetFilter) ? this.targetFilter.step(now) : [];
-        const hasPointCloud = !!(this.activePointCloud && this.activePointCloud.points && this.activePointCloud.points.length > 0);
         const hasTargets = isCanvasMode && activeTargets.length > 0;
         const hasCalibration = !!(this.currentState?.calibration?.active && this.currentState?.calibration?.map);
-        if (!hasPointCloud && !hasTargets && !hasCalibration) {
+        if (!hasTargets && !hasCalibration) {
             if (!this._isCanvasCleared) {
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 this._isCanvasCleared = true;
@@ -90,9 +78,6 @@ export class RadarRenderer {
         }
         this._isCanvasCleared = false;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        if (hasPointCloud) {
-            this.drawPointCloud();
-        }
         if (hasCalibration) {
             this.drawCalibrationDot();
         }
@@ -410,132 +395,6 @@ export class RadarRenderer {
         });
         this.targetFilter.prune(activeKeys);
     }
-    updateRawTargets(rName, rawList) {
-        if (!this.targetFilter || !Array.isArray(rawList) || !this.currentState) return;
-        const cfg = this.getRadarConfig(this.currentState, rName, this.currentHass);
-        const defColors = ['#00FF00', '#FF0000', '#00FFFF', '#FF00FF', '#FFFF00', '#FFA500'];
-        const userColors = this.currentConfig?.target_colors || [];
-        const allRadars = this._getAllRadars(this.currentState, this.currentConfig, this.currentHass);
-        const rIndex = allRadars.findIndex(r => r.name === rName);
-        const radarColor = userColors[rIndex] || defColors[rIndex % defColors.length] || '#00FF00';
-        const isSelected = (rName === this.currentState.radar);
-        rawList.forEach(t => {
-            if (t.x === undefined || t.y === undefined) return;
-            const idx = t.i !== undefined ? t.i : (t.id || 1);
-            const key = `raw_${rName}_${idx}`;
-            const ground = this.math.calculate(cfg, { x: t.x, y: t.y, z: t.z || 0 });
-            if (!ground || !ground.active) return;
-            const colorIdx = (typeof idx === 'number') ? ((idx > 9) ? (idx % defColors.length) : (idx - 1)) : 0;
-            const targetCol = userColors[colorIdx] || defColors[colorIdx % defColors.length] || radarColor;
-            this.targetFilter.update(key, ground.left, ground.top, {
-                radarName: rName,
-                index: idx,
-                label: (idx > 9 ? "D" : idx),
-                color: targetCol,
-                type: 'raw',
-                isSelected: isSelected
-            });
-        });
-    }
-    drawPointCloud() {
-        if (!this.activePointCloud || !this.activePointCloud.points || this.activePointCloud.points.length === 0) return;
-        const rName = this.activePointCloud.rName;
-        if (this.currentState.data && this.currentState.data[rName] && this.currentState.data[rName].paused === true) return;
-        const points = this.activePointCloud.points;
-        const cfg = this.getRadarConfig(this.currentState, rName, this.currentHass);
-        const rect = this.canvas.getBoundingClientRect();
-        const rw = Math.round(rect.width);
-        const rh = Math.round(rect.height);
-        if (this.canvas.width !== rw || this.canvas.height !== rh) {
-            this.canvas.width = rw;
-            this.canvas.height = rh;
-        }
-        if (rw === 0 || rh === 0) return;
-        const targetDefColors = ['#00FF00', '#FF0000', '#00FFFF', '#FF00FF', '#FFFF00', '#FFA500', '#00E5FF'];
-        const userColors = this.currentConfig.target_colors || [];
-        const allRadars = this._getAllRadars(this.currentState, this.currentConfig, this.currentHass);
-        const rIndex = allRadars.findIndex(r => r.name === rName);
-        const globalConfig = (this.currentState.data && this.currentState.data.global_config) || {};
-        const baseRadarColor = userColors[rIndex] || targetDefColors[rIndex % targetDefColors.length] || globalConfig.fused_color || '#00e5ff';
-        const rot = parseFloat(cfg.rotation) || 0;
-        const baseRad = (rot - 90) * Math.PI / 180.0;
-        const yVecX = Math.cos(baseRad);
-        const yVecY = Math.sin(baseRad);
-        const xVecX = Math.cos(baseRad + (Math.PI / 2));
-        const xVecY = Math.sin(baseRad + (Math.PI / 2));
-        const ox = parseFloat(cfg.origin_x) || 50;
-        const oy = parseFloat(cfg.origin_y) || 50;
-        const sx = parseFloat(cfg.scale_x) || 5;
-        const sy = parseFloat(cfg.scale_y) || 5;
-        const doCorrection = (cfg.enable_correction !== false && cfg.radar_type === 1 && !cfg.ceiling_mount);
-        const radarH = parseFloat(cfg.mount_height) || 2.5;
-        const targetH = parseFloat(cfg.target_height) || 1.2;
-        const hDiff = Math.abs(radarH - targetH);
-        const hDiffSq = hDiff * hDiff;
-        let isFlat = points.length > 0 && typeof points[0] === 'number';
-        let step = 1;
-        if (isFlat) {
-            if (points.length % 4 === 0) step = 4;
-            else if (points.length % 3 === 0 && points.length % 2 !== 0) step = 3;
-            else if (points.length % 2 === 0) step = 2;
-            else step = 4;
-        }
-        const colorBatches = {};
-        for (let i = 0; i < points.length; i += step) {
-            let pt = points[i];
-            let pX = 0, pY = 0;
-            let clusterId = 0;
-            if (isFlat) {
-                pX = points[i];
-                pY = points[i + 1];
-                if (step >= 4) clusterId = points[i + 3] || 0;
-            } else {
-                pX = pt[0] !== undefined ? pt[0] : (pt.x || 0);
-                pY = pt[1] !== undefined ? pt[1] : (pt.y || 0);
-                clusterId = pt[3] !== undefined ? pt[3] : (pt.id || 0);
-            }
-            let xVal = (Math.abs(pX) > 50 || Math.abs(pY) > 50) ? pX / 1000.0 : pX;
-            let yVal = (Math.abs(pX) > 50 || Math.abs(pY) > 50) ? pY / 1000.0 : pY;
-            if (doCorrection && yVal > 0) {
-                const slantDistSq = xVal * xVal + yVal * yVal;
-                if (slantDistSq > hDiffSq) {
-                    const groundDist = Math.sqrt(slantDistSq - hDiffSq);
-                    const scaleK = groundDist / Math.sqrt(slantDistSq);
-                    xVal *= scaleK;
-                    yVal *= scaleK;
-                } else {
-                    xVal = 0;
-                    yVal = 0;
-                }
-            }
-            if (cfg.mirror_x) xVal = -xVal;
-            let finalX = ox + (xVal * sx * xVecX) + (yVal * sy * yVecX);
-            let finalY = oy + (xVal * sx * xVecY) + (yVal * sy * yVecY);
-            let pixelX = (finalX / 100) * rect.width;
-            let pixelY = (finalY / 100) * rect.height;
-            let ptColor;
-            if (clusterId > 0) {
-                const cIdx = clusterId - 1;
-                ptColor = userColors[cIdx] || targetDefColors[cIdx % targetDefColors.length] || '#00e5ff';
-            } else {
-                ptColor = baseRadarColor;
-            }
-            if (!colorBatches[ptColor]) {
-                colorBatches[ptColor] = [];
-            }
-            colorBatches[ptColor].push(pixelX, pixelY);
-        }
-        for (const [color, coords] of Object.entries(colorBatches)) {
-            this.ctx.fillStyle = color;
-            this.ctx.shadowColor = color;
-            this.ctx.shadowBlur = 4;
-            this.ctx.beginPath();
-            for (let j = 0; j < coords.length; j += 2) {
-                this.ctx.rect(coords[j] - 1.5, coords[j + 1] - 1.5, 3, 3);
-            }
-            this.ctx.fill();
-        }
-    }
     getRadarConfig(state, rName, hass) {
         const getVal = (key, def) => {
             let val = def;
@@ -551,50 +410,9 @@ export class RadarRenderer {
             if (typeof val !== 'number' || isNaN(val)) return def;
             return val;
         };
-        let radarType = getVal('radar_type', undefined);
-        const radarData = (state.data && state.data[rName]) || {};
-        if (radarType === undefined) radarType = radarData.capabilities && radarData.capabilities.radar_type !== undefined ? radarData.capabilities.radar_type : 1;
-        let radarH = getVal('mount_height', 2.5);
-        const hasTempHeight = state.editMode === 'layout' && rName === state.radar && state.layoutChanges && state.layoutChanges['mount_height'] !== undefined;
-        if (!hasTempHeight && hass) {
-            let safeR = rName.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
-            let hEntId = null;
-            const candidatesR = [
-                `number.${safeR}_install_height`,
-                `number.${safeR}_radar_height`,
-                `number.${safeR}_mount_height`
-            ];
-            for (const c of candidatesR) {
-                if (hass.states[c]) { hEntId = c; break; }
-            }
-            if (!hEntId) {
-                const found = Object.keys(hass.states).find(k =>
-                    k.startsWith(`number.${safeR}`) &&
-                    !k.includes('fall') &&
-                    (k.includes('install_height') || k.includes('radar_height') || k.includes('mount_height'))
-                );
-                if (found) hEntId = found;
-            }
-            if (hass.states[hEntId] && hass.states[hEntId].state !== 'unavailable' && hass.states[hEntId].state !== 'unknown') {
-                radarH = parseFloat(hass.states[hEntId].state) || radarH;
-            }
-        }
-        let isCeiling = getVal('ceiling_mount', false);
-        if (radarData.capabilities && radarData.capabilities.current_mount !== undefined) {
-            const hasTempChange = state.editMode === 'layout' && rName === state.radar && state.layoutChanges && state.layoutChanges['ceiling_mount'] !== undefined;
-            if (!hasTempChange) {
-                isCeiling = (radarData.capabilities.current_mount === 'ceiling');
-                if (hass) {
-                    const entId = `select.${rName.toLowerCase()}_install_mode`;
-                    if (hass.states[entId]) {
-                        isCeiling = (hass.states[entId].state.toLowerCase() === 'ceiling');
-                    }
-                }
-            }
-            if (!radarData.capabilities.supported_mounts || !radarData.capabilities.supported_mounts.includes('ceiling')) {
-                isCeiling = false;
-            }
-        }
+        const radarType = getVal('radar_type', 1);
+        const radarH = getVal('mount_height', 2.5);
+        const isCeiling = getVal('ceiling_mount', false);
         return {
             origin_x: getVal('origin_x', 50),
             origin_y: getVal('origin_y', 50),
@@ -687,13 +505,6 @@ export class RadarRenderer {
             }
             const rData = state.data[rName] || {};
             const isPaused = (rData.paused === true);
-            let isExclusive = !!(rData && (rData.capabilities || rData.device_pin || rData.radar_ip || rData.auth_passed));
-            if (!isExclusive && hass && hass.states) {
-                const safeName = rName.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
-                if (hass.states[`update.${safeName}_firmware`] || Object.keys(hass.states).some(k => k.startsWith(`update.${safeName}`) && k.includes('firmware'))) {
-                    isExclusive = true;
-                }
-            }
             let opacity = 0.4;
             let strokeColor = '#666';
             if (isCurrent) {
@@ -705,9 +516,6 @@ export class RadarRenderer {
             } else if (isPaused) {
                 strokeColor = '#555555'; 
                 opacity = 0.45;
-            } else if (isExclusive) {
-                strokeColor = '#FF9100'; 
-                opacity = 0.95;
             } else {
                 strokeColor = '#03A9F4'; 
                 opacity = 0.7;
@@ -717,14 +525,6 @@ export class RadarRenderer {
             const ox = cfg.origin_x;
             const oy = cfg.origin_y;
             const group = this._create('g', { 'data-id': rName, 'data-radar': rName, class: 'radar-group' });
-            if (isExclusive && !isOffline && !isPaused) {
-                group.appendChild(this._create('circle', {
-                    cx: ox, cy: oy, r: radarR * 2.5, class: 'radar-exclusive-glow', pointerEvents: 'none'
-                }, { fill: 'rgba(255, 145, 0, 0.2)', stroke: 'none' }));
-                group.appendChild(this._create('circle', {
-                    cx: ox, cy: oy, r: radarR * 1.8, class: 'radar-exclusive-halo', pointerEvents: 'none'
-                }, { fill: 'none', stroke: '#FF9100', strokeWidth: Math.max(0.25, radarR * 0.3), strokeDasharray: '1.2, 0.8' }));
-            }
             group.appendChild(this._create('circle', {
                 cx: ox, cy: oy, r: radarR, class: 'radar-handle-body', 'data-id': rName, 'data-radar': rName
             }, { fill: strokeColor, stroke: 'white', strokeWidth: Math.max(0.3, radarR * 0.35), opacity: opacity, pointerEvents: ptrEvents, cursor: 'move' }));
@@ -752,24 +552,17 @@ export class RadarRenderer {
                     }
                     pathD += ` Z`;
                 }
-                const fovFill = isExclusive ? 'rgba(255, 145, 0, 0.14)' : 'cyan';
-                const fovStroke = isExclusive ? '#FF9100' : 'cyan';
-                const handleLineStroke = isExclusive ? '#FF9100' : strokeColor;
-                const rotHandleFill = isExclusive ? '#FFB300' : 'cyan';
-                const rotTextFill = isExclusive ? '#FF9100' : 'cyan';
-                group.appendChild(this._create('path', { d: pathD }, { fill: fovFill, fillOpacity: isExclusive ? '1' : '0.15', stroke: fovStroke, strokeWidth: '0.5', strokeDasharray: '2,1', pointerEvents: 'none' }));
-                group.appendChild(this._create('line', { x1: ox, y1: oy, x2: hx, y2: hy }, { stroke: handleLineStroke, strokeWidth: '0.8', strokeDasharray: '4,2', opacity: opacity, pointerEvents: 'none' }));
-                group.appendChild(this._create('circle', { cx: hx, cy: hy, r: rotR, class: 'radar-handle-rot', 'data-id': rName, 'data-radar': rName }, { fill: rotHandleFill, stroke: 'white', strokeWidth: Math.max(0.3, radarR * 0.35), opacity: opacity, pointerEvents: ptrEvents, cursor: 'alias' }));
-                const prefix = isExclusive ? '⭐ ' : '';
-                const txt = this._create('text', { x: hx, y: hy - rotR - 0.8 }, { fontSize: `${avatarFontSize}px`, fill: rotTextFill, textAnchor: 'middle', fontWeight: 'bold', pointerEvents: 'none', textShadow: '1px 1px 1px black', opacity: opacity });
-                txt.textContent = isPaused ? `${prefix}${Math.round(cfg.rotation)}° ⏸` : `${prefix}${Math.round(cfg.rotation)}°`;
+                group.appendChild(this._create('path', { d: pathD }, { fill: 'cyan', fillOpacity: '0.15', stroke: 'cyan', strokeWidth: '0.5', strokeDasharray: '2,1', pointerEvents: 'none' }));
+                group.appendChild(this._create('line', { x1: ox, y1: oy, x2: hx, y2: hy }, { stroke: strokeColor, strokeWidth: '0.8', strokeDasharray: '4,2', opacity: opacity, pointerEvents: 'none' }));
+                group.appendChild(this._create('circle', { cx: hx, cy: hy, r: rotR, class: 'radar-handle-rot', 'data-id': rName, 'data-radar': rName }, { fill: 'cyan', stroke: 'white', strokeWidth: Math.max(0.3, radarR * 0.35), opacity: opacity, pointerEvents: ptrEvents, cursor: 'alias' }));
+                const txt = this._create('text', { x: hx, y: hy - rotR - 0.8 }, { fontSize: `${avatarFontSize}px`, fill: 'cyan', textAnchor: 'middle', fontWeight: 'bold', pointerEvents: 'none', textShadow: '1px 1px 1px black', opacity: opacity });
+                txt.textContent = isPaused ? `${Math.round(cfg.rotation)}° ⏸` : `${Math.round(cfg.rotation)}°`;
                 group.appendChild(txt);
                 group.appendChild(this._create('line', { x1: 0, y1: oy, x2: 100, y2: oy }, { stroke: 'rgba(255, 255, 0, 0.3)', strokeWidth: '0.2', pointerEvents: 'none' }));
                 group.appendChild(this._create('line', { x1: ox, y1: 0, x2: ox, y2: 100 }, { stroke: 'rgba(255, 255, 0, 0.3)', strokeWidth: '0.2', pointerEvents: 'none' }));
             } else {
-                const prefix = isExclusive ? '⭐ ' : '';
                 const name = this._create('text', { x: ox, y: oy + radarR + 1.8 }, { fontSize: `${avatarFontSize * 0.8}px`, fill: strokeColor, textAnchor: 'middle', pointerEvents: 'none', textShadow: '1px 1px 1px black', fontWeight: 'bold' });
-                name.textContent = isOffline ? `${prefix}${rName} (Off)` : (isPaused ? `${prefix}${rName} (⏸)` : `${prefix}${rName}`);
+                name.textContent = isOffline ? `${rName} (Off)` : (isPaused ? `${rName} (⏸)` : rName);
                 group.appendChild(name);
             }
             svg.appendChild(group);
@@ -1059,9 +852,8 @@ export class RadarRenderer {
         const renderMode = globalConfig.target_render_mode || config.target_render_mode || 'css';
         const isCanvasMode = (renderMode === 'canvas');
         this.isCanvasMode = isCanvasMode;
-        const hasPointCloud = !!(this.activePointCloud && this.activePointCloud.points && this.activePointCloud.points.length > 0);
         const hasCalibration = !!(state?.calibration?.active && state?.calibration?.map);
-        if (isCanvasMode || hasPointCloud || hasCalibration) {
+        if (isCanvasMode || hasCalibration) {
             this.wakeRenderLoop();
         }
         const dotsLayer = this.root.getElementById('dots-layer');
@@ -1099,12 +891,7 @@ export class RadarRenderer {
         const globalZones = (state.data && state.data.global_zones) || {};
         const excludeZones = globalZones.exclude_zones || [];
         if (state.editMode === 'zone' || state.editMode === 'settings' || !state.editing) {
-            const mapGroup = state.mapGroup || "default";
-            const safeId = mapGroup.toLowerCase().replace(/ /g, "_");
-            const fusionEnt = hass && hass.states ? hass.states[`sensor.rmm_${safeId}_master`] : null;
-            const sourceFusedList = (state.directFusedTargets && state.directFusedTargets.length > 0)
-                ? state.directFusedTargets
-                : (fusionEnt && fusionEnt.attributes?.targets ? fusionEnt.attributes.targets : []);
+            const sourceFusedList = state.fused_targets || [];
             sourceFusedList.forEach(t => {
                 if (t.x === undefined || t.y === undefined) return;
                 if (excludeZones.some(z => this._isPointInPoly(t.x, t.y, z))) return;
@@ -1296,53 +1083,8 @@ export class RadarRenderer {
                 if (rData.paused === true) return;
                 const cfg = this.getRadarConfig(state, rName, hass);
                 const isSelected = (rName === state.radar);
-                if (state.directTargets && state.directTargets[rName] && state.directTargets[rName].length > 0) {
-                    const rawList = state.directTargets[rName];
-                    const allRadarsList = this._getAllRadars(state, config, hass);
-                    const rIndex = allRadarsList.findIndex(r => r.name === rName);
-                    const radarColor = userColors[rIndex] || defColors[rIndex % defColors.length] || '#00FF00';
-                    rawList.forEach(t => {
-                        if (t.x === undefined || t.y === undefined) return;
-                        const idx = t.i !== undefined ? t.i : (t.id || 1);
-                        const ground = this.math.calculate(cfg, { x: t.x, y: t.y, z: t.z || 0 });
-                        if (!ground || !ground.active) return;
-                        const dotId = `raw_${rName}_${idx}`;
-                        currentActiveIds.add(dotId);
-                        let dot = this._domCache[dotId];
-                        if (!dot) {
-                            dot = document.createElement('div');
-                            dot.id = dotId;
-                            dot.className = 'dot';
-                            dot.style.position = 'absolute';
-                            dotsLayer.appendChild(dot);
-                            this._domCache[dotId] = dot;
-                        }
-                        const colorIdx = (typeof idx === 'number') ? ((idx > 9) ? (idx % defColors.length) : (idx - 1)) : 0;
-                        const targetCol = userColors[colorIdx] || defColors[colorIdx % defColors.length] || radarColor;
-                        dot.style.width = `${targetRadius * 2}px`;
-                        dot.style.height = `${targetRadius * 2}px`;
-                        dot.style.background = targetCol;
-                        dot.style.transition = 'left 0.15s linear, top 0.15s linear, transform 0.2s, box-shadow 0.2s';
-                        dot.style.left = ground.left + '%';
-                        dot.style.top = ground.top + '%';
-                        if (isSelected) {
-                            dot.style.border = '2px solid white';
-                            dot.style.boxShadow = '0 0 12px white';
-                            dot.style.transform = 'translate(-50%, -50%) scale(1.3)';
-                            dot.style.zIndex = '100';
-                        } else {
-                            dot.style.border = '1px solid rgba(0,0,0,0.5)';
-                            dot.style.boxShadow = 'none';
-                            dot.style.transform = 'translate(-50%, -50%) scale(1)';
-                            dot.style.zIndex = '10';
-                        }
-                        dot.innerText = showLbl ? (idx > 9 ? "D" : idx) : '';
-                    });
-                } else {
-                    const maxT = (rData.capabilities && rData.capabilities.max_targets) ? rData.capabilities.max_targets : 5;
-                    for (let i = 1; i <= maxT; i++) {
-                        this.processTarget(hass, rName, i, cfg, targetRadius, showLbl, userColors, defColors, null, dotsLayer, currentActiveIds, isSelected);
-                    }
+                for (let i = 1; i <= 5; i++) {
+                    this.processTarget(hass, rName, i, cfg, targetRadius, showLbl, userColors, defColors, null, dotsLayer, currentActiveIds, isSelected);
                 }
             });
         }
@@ -1360,12 +1102,7 @@ export class RadarRenderer {
         if (!this.targetFilter) return;
         const currentActiveIds = new Set();
         if (state.editMode === 'zone' || state.editMode === 'settings' || !state.editing) {
-            const mapGroup = state.mapGroup || "default";
-            const safeId = mapGroup.toLowerCase().replace(/ /g, "_");
-            const fusionEnt = hass && hass.states ? hass.states[`sensor.rmm_${safeId}_master`] : null;
-            const sourceFusedList = (state.directFusedTargets && state.directFusedTargets.length > 0)
-                ? state.directFusedTargets
-                : (fusionEnt && fusionEnt.attributes?.targets ? fusionEnt.attributes.targets : []);
+            const sourceFusedList = state.fused_targets || [];
             const globalConfig = (state.data && state.data.global_config) || {};
             const fusedColor = config.fused_color || globalConfig.fused_color || '#FFD700';
             const showLabels = (globalConfig.show_labels !== undefined ? globalConfig.show_labels : config.show_labels) === true;
@@ -1402,34 +1139,8 @@ export class RadarRenderer {
                 if (rData.paused === true) return;
                 const cfg = this.getRadarConfig(state, rName, hass);
                 const isSelected = (rName === state.radar);
-                if (state.directTargets && state.directTargets[rName] && state.directTargets[rName].length > 0) {
-                    const rawList = state.directTargets[rName];
-                    const allRadarsList = this._getAllRadars(state, config, hass);
-                    const rIndex = allRadarsList.findIndex(r => r.name === rName);
-                    const radarColor = userColors[rIndex] || defColors[rIndex % defColors.length] || '#00FF00';
-                    rawList.forEach(t => {
-                        if (t.x === undefined || t.y === undefined) return;
-                        const idx = t.i !== undefined ? t.i : (t.id || 1);
-                        const ground = this.math.calculate(cfg, { x: t.x, y: t.y, z: t.z || 0 });
-                        if (!ground || !ground.active) return;
-                        const dotId = `raw_${rName}_${idx}`;
-                        currentActiveIds.add(dotId);
-                        const colorIdx = (typeof idx === 'number') ? ((idx > 9) ? (idx % defColors.length) : (idx - 1)) : 0;
-                        const targetCol = userColors[colorIdx] || defColors[colorIdx % defColors.length] || radarColor;
-                        this.targetFilter.update(dotId, ground.left, ground.top, {
-                            radarName: rName,
-                            index: idx,
-                            color: targetCol,
-                            label: (idx > 9 ? "D" : idx),
-                            type: 'raw',
-                            isSelected: isSelected
-                        });
-                    });
-                } else {
-                    const maxT = (rData.capabilities && rData.capabilities.max_targets) ? rData.capabilities.max_targets : 5;
-                    for (let i = 1; i <= maxT; i++) {
-                        this.processTarget(hass, rName, i, cfg, config.target_radius || 8, showLabels, userColors, defColors, null, null, currentActiveIds, isSelected);
-                    }
+                for (let i = 1; i <= 5; i++) {
+                    this.processTarget(hass, rName, i, cfg, config.target_radius || 8, showLabels, userColors, defColors, null, null, currentActiveIds, isSelected);
                 }
             });
         }

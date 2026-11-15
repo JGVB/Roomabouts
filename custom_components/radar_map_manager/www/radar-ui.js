@@ -1,6 +1,6 @@
 
 const UI_I18N = {
-    "panel_title": { zh: "::: 雷达地图中控 (RMM)", en: "::: Radar Map Manager" },
+    "panel_title": { zh: "::: Roomabouts 家居地图", en: "::: Roomabouts" },
     "win_min": { zh: "最小化/展开", en: "Minimize" },
     "win_close": { zh: "关闭", en: "Close" },
     "win_lang": { zh: "语言: 中文 (点击切换至 English)", en: "Language: English (Click to switch to 中文)" },
@@ -10,29 +10,13 @@ const UI_I18N = {
     "tab_zones": { zh: "防区", en: "Zones" },
     "tab_settings": { zh: "设置", en: "Set" },
     "btn_add_radar": { zh: "添加雷达", en: "Add Radar" },
-    "btn_edit_radar": { zh: "编辑雷达参数", en: "Edit Radar Params" },
     "btn_pause_radar": { zh: "暂停雷达数据接收", en: "Pause Radar" },
     "btn_del_radar": { zh: "删除雷达", en: "Del Radar" },
-    "btn_auto": { zh: "自动", en: "Auto" },
-    "title_auto_block": { zh: "自动识别环境噪点并生成排除区", en: "Auto Learn Block Zones" },
     "title_edit_fov": { zh: "绘制/编辑区域", en: "Draw Region" },
-    "title_radar_web": { zh: "访问雷达 Web 控制台", en: "Visit Radar Web Console" },
-    "title_radar_ota": { zh: "升级雷达硬件固件", en: "Upgrade Firmware" },
     "tip_zone_view_focus": { zh: "防区视图：🎯 聚焦当前类型", en: "Zone View: 🎯 Focus Active Type" },
     "tip_zone_view_all": { zh: "防区视图：🌐 全景微缩模式", en: "Zone View: 🌐 All Subtle Mode" },
     "tip_zone_view_hidden": { zh: "防区视图：👁️‍🗨️ 隐藏防区几何", en: "Zone View: 👁️‍🗨️ Hide Zones" },
     "zone_monitor": { zh: "监控区 (Monitor)", en: "Monitor" },
-    "zone_hw_detect": { zh: "硬件探测区 (Detect)", en: "HW Detect" },
-    "zone_hw_block": { zh: "硬件屏蔽区 (Block)", en: "HW Block" },
-    "zone_hw_stay": { zh: "硬件驻留区 (Stay)", en: "HW Stay" },
-    "lbl_follow_zones": { zh: "区域随动", en: "Zone Follow" },
-    "chip_follow_detect": { zh: "🟩 探测", en: "🟩 Det" },
-    "chip_follow_block": { zh: "🟥 屏蔽", en: "🟥 Blk" },
-    "chip_follow_stay": { zh: "🟪 驻留", en: "🟪 Stay" },
-    "tip_follow_zones": { zh: "移动或旋转雷达时，选中的硬件区域随本体同步变换", en: "Sync selected hardware zones with radar position & rotation" },
-    "tip_follow_detect": { zh: "硬件探测区 (Detect)", en: "HW Detect Zone" },
-    "tip_follow_block": { zh: "硬件屏蔽区 (Block)", en: "HW Block Zone" },
-    "tip_follow_stay": { zh: "硬件驻留区 (Stay)", en: "HW Stay Zone" },
     "lbl_x": { zh: "X", en: "X" },
     "lbl_y": { zh: "Y", en: "Y" },
     "lbl_rot": { zh: "角度", en: "Rot" },
@@ -46,17 +30,6 @@ const UI_I18N = {
     "title_dim_type": { zh: "雷达维度类型 (2D / 2.5D / 3D)", en: "Radar Dimension Type" },
     "lbl_h": { zh: "高度", en: "H" },
     "title_h": { zh: "雷达离地安装高度 (米)", en: "Radar Height (m)" },
-    "lbl_z_range": { zh: "Z轴范围", en: "Z-Range" },
-    "title_z_range": { zh: "感知高度范围 (Z Min ~ Z Max)", en: "Z-Axis Perception Range" },
-    "title_z_min": { zh: "Z 轴下限 (米)", en: "Z Min (m)" },
-    "title_z_max": { zh: "Z 轴上限 (米)", en: "Z Max (m)" },
-    "lbl_zone_follow_global": { zh: "跟随全局", en: "Global" },
-    "title_zone_follow_global": { zh: "跟随雷达全局感知高度范围", en: "Follow radar global Z-axis range" },
-    "lbl_zone_custom_z": { zh: "跟随全局", en: "Global" },
-    "title_zone_custom_z": { zh: "是否为该防区单独设置感知高度范围", en: "Set dedicated Z-Axis range for this zone" },
-    "lbl_point_cloud": { zh: "3D 点云", en: "3D Point Cloud" },
-    "lbl_high_cpu": { zh: "(高能耗)", en: "(High CPU)" },
-    "title_point_cloud": { zh: "开启硬件点云与 WebSocket 直连通道", en: "Enable Hardware Point Cloud & WS Stream" },
     "btn_save_layout": { zh: "保存", en: "SAVE" },
     "btn_undo_layout": { zh: "撤销", en: "Undo" },
     "btn_freeze": { zh: "冻结", en: "Freeze" },
@@ -214,8 +187,6 @@ export class RadarUI {
         if (bSet) bSet.innerText = t('tab_settings');
         const btnAdd = this.root.getElementById('btn-add-radar');
         if (btnAdd) btnAdd.title = t('btn_add_radar');
-        const btnEdit = this.root.getElementById('btn-edit-radar');
-        if (btnEdit) btnEdit.title = t('btn_edit_radar');
         const btnPause = this.root.getElementById('btn-pause-radar');
         if (btnPause) {
             const isPaused = (state && state.radar && state.data && state.data[state.radar] && state.data[state.radar].paused === true);
@@ -225,23 +196,11 @@ export class RadarUI {
         if (btnDel) btnDel.title = t('btn_del_radar');
         const selRadarZoneType = this.root.getElementById('sel-radar-zone-type');
         if (selRadarZoneType) {
-            const curVal = selRadarZoneType.value;
-            selRadarZoneType.innerHTML = `
-                <option value="monitor_zones">🟨 ${t('zone_monitor')}</option>
-                <option value="hw_detect_zones">🟩 ${t('zone_hw_detect')}</option>
-                <option value="hw_block_zones">🟥 ${t('zone_hw_block')}</option>
-                <option value="hw_stay_zones">🟪 ${t('zone_hw_stay')}</option>
-            `;
-            if (curVal) selRadarZoneType.value = curVal;
+            selRadarZoneType.innerHTML = `<option value="monitor_zones">🟨 ${t('zone_monitor')}</option>`;
+            selRadarZoneType.value = 'monitor_zones';
         }
-        const btnAuto = this.root.getElementById('btn-auto-block');
-        if (btnAuto) { btnAuto.innerText = `🪄 ${t('btn_auto')}`; btnAuto.title = t('title_auto_block'); }
         const btnFov = this.root.getElementById('btn-edit-fov');
         if (btnFov && (!state || !state.fov_edit_mode)) btnFov.title = t('title_edit_fov');
-        const btnWeb = this.root.getElementById('btn-radar-web');
-        if (btnWeb) btnWeb.title = t('title_radar_web');
-        const btnOta = this.root.getElementById('btn-radar-ota');
-        if (btnOta) btnOta.title = t('title_radar_ota');
         const innerParams = this.root.getElementById('layout-inner-params');
         if (innerParams) {
             const firstRowLabels = innerParams.querySelectorAll('.row:first-child label');
@@ -266,37 +225,6 @@ export class RadarUI {
             if (lblH) { lblH.innerText = t('lbl_h'); lblH.title = t('title_h'); }
             const inH = this.root.getElementById('layout-h');
             if (inH) inH.title = t('title_h');
-            const rowZR = this.root.getElementById('row-z-range');
-            if (rowZR) {
-                const lbl = rowZR.querySelector('label');
-                if (lbl) { lbl.innerText = t('lbl_z_range'); lbl.title = t('title_z_range'); }
-                const inMin = this.root.getElementById('layout-z-min');
-                if (inMin) inMin.title = t('title_z_min');
-                const inMax = this.root.getElementById('layout-z-max');
-                if (inMax) inMax.title = t('title_z_max');
-            }
-            const rowPC = this.root.getElementById('row-point-cloud');
-            if (rowPC) {
-                const lbl = rowPC.querySelector('label');
-                if (lbl) lbl.innerText = t('lbl_point_cloud');
-                const span = rowPC.querySelector('span');
-                if (span) span.innerText = t('lbl_high_cpu');
-                const chk = this.root.getElementById('chk-eng-mode');
-                if (chk) chk.title = t('title_point_cloud');
-            }
-            const rowFollow = this.root.getElementById('row-follow-zones');
-            if (rowFollow) {
-                const lbl = rowFollow.querySelector('label span');
-                if (lbl) lbl.innerText = t('lbl_follow_zones');
-                const chk = this.root.getElementById('layout-follow-zones');
-                if (chk) chk.title = t('tip_follow_zones');
-                const chipDet = this.root.getElementById('chip-follow-detect');
-                if (chipDet) { chipDet.innerText = t('chip_follow_detect'); chipDet.title = t('tip_follow_detect'); }
-                const chipBlk = this.root.getElementById('chip-follow-block');
-                if (chipBlk) { chipBlk.innerText = t('chip_follow_block'); chipBlk.title = t('tip_follow_block'); }
-                const chipSty = this.root.getElementById('chip-follow-stay');
-                if (chipSty) { chipSty.innerText = t('chip_follow_stay'); chipSty.title = t('tip_follow_stay'); }
-            }
             const btnSaveLayout = this.root.getElementById('btn-save-layout');
             if (btnSaveLayout) btnSaveLayout.innerText = t('btn_save_layout');
             const btnCancelLayout = this.root.getElementById('btn-cancel-layout');
@@ -645,14 +573,6 @@ export class RadarUI {
             .trail-dot { position: absolute; transform: translate(-50%, -50%) scale(1); border-radius: 50%; pointer-events: none; opacity: 0.6; transition: opacity 1.5s ease-in, transform 1.5s linear; z-index: 1; }
             .base-shadow { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(0,0,0,0.5); filter: blur(1px); pointer-events: none; }
             .zone-label { font-size: 3.5px; fill: white; text-anchor: middle; pointer-events: none; text-shadow: 1px 1px 2px black; }
-            .radar-exclusive-halo {
-                animation: rmmHaloPulse 2.4s infinite ease-in-out;
-                transform-origin: center;
-            }
-            @keyframes rmmHaloPulse {
-                0%, 100% { opacity: 0.85; stroke-width: 0.35; stroke: #FF9100; }
-                50% { opacity: 0.25; stroke-width: 0.65; stroke: #FFD54F; }
-            }
         `;
     }
     renderPanel(state, config) {
@@ -663,7 +583,7 @@ export class RadarUI {
         div.innerHTML = `
             <div id="panel" class="radar-panel">
                 <div id="panel-header" class="panel-header">
-                    <span class="title-text">::: Radar Map Manager</span>
+                    <span class="title-text">::: Roomabouts</span>
                     <div class="win-controls">
                         <span id="btn-toggle-lang" title="Toggle Language / 切换中英文">中</span>
                         <span id="btn-min-panel" class="win-btn" title="Minimize">_</span>
@@ -681,7 +601,6 @@ export class RadarUI {
                             <select id="sel-radar" style="flex:1; min-width:0; height:22px;"></select>
                             <div style="display:flex; align-items:center; gap:2px; margin-left:auto; flex-shrink:0;">
                                 <button id="btn-add-radar" class="success" title="Add Radar" style="width:22px; height:22px; padding:0; font-size:11px;">+</button>
-                                <button id="btn-edit-radar" class="primary" title="Edit Radar Params" style="width:22px; height:22px; padding:0; font-size:11px;">✎</button>
                                 <button id="btn-pause-radar" title="Pause Radar" style="width:22px; height:22px; padding:0; background:#4CAF50; color:white; border:none; border-radius:9999px; cursor:pointer; font-size:10px;">⏸</button>
                                 <button id="btn-del-radar" class="danger" title="Del Radar" style="width:22px; height:22px; padding:0; font-size:11px;">-</button>
                             </div>
@@ -689,30 +608,13 @@ export class RadarUI {
                         <div class="row" style="margin-bottom: 4px;">
                             <select id="sel-radar-zone-type" style="flex:1; min-width:0; height:22px; background:#222; color:white; border:1px solid #444;">
                                 <option value="monitor_zones">🟨 Monitor</option>
-                                <option value="hw_detect_zones">🟩 HW Detect</option>
-                                <option value="hw_block_zones">🟥 HW Block</option>
-                                <option value="hw_stay_zones">🟪 HW Stay</option>
                             </select>
                             <div style="display:flex; align-items:center; gap:2px; margin-left:auto; flex-shrink:0;">
-                                <button id="btn-auto-block" class="primary" style="display:none; width:auto; padding:0 8px; height:22px; font-size:10px; font-weight:bold; background:#1976D2; color:white; border:none; border-radius:9999px; cursor:pointer;" title="Auto Learn Block Zones">🪄 Auto</button>
                                 <button id="btn-zone-view-mode" type="button" class="view-chip" title="Zone View" style="width:22px; height:22px; padding:0; font-size:11px; border-radius:3px; cursor:pointer; background:rgba(128,128,128,0.15); border:1px solid rgba(128,128,128,0.3); color:var(--primary-text-color, #fff); display:inline-flex; align-items:center; justify-content:center;">🎯</button>
                                 <button id="btn-edit-fov" class="warning" style="width:22px; height:22px; padding:0; font-size:11px;" title="Draw Region">✏️</button>
-                                <button id="btn-radar-web" class="info" style="display:none; width:22px; height:22px; padding:0; font-size:11px;" title="访问雷达 Web 控制台">🔗</button>
-                                <button id="btn-radar-ota" class="primary" style="display:none; position:relative; width:22px; height:22px; padding:0; font-size:11px;" title="尝试升级 RMM 硬件固件">☁️</button>
                             </div>
                         </div>
                         <div id="layout-scroll-area" class="scroll-area" style="display:flex; flex-direction:column; gap:3px;">
-                            <div id="row-follow-zones" class="row" style="display:none; justify-content:space-between; align-items:center; margin-bottom:4px; padding:2px 4px; background:var(--card-background-color, rgba(128,128,128,0.06)); border:1px solid var(--divider-color, rgba(128,128,128,0.15)); border-radius:4px; box-sizing:border-box;">
-                                <label class="chk-label" style="height:22px; padding:0 2px; font-size:11px; cursor:pointer;" title="${t('tip_follow_zones')}">
-                                    <input type="checkbox" id="layout-follow-zones" style="margin-right:4px;">
-                                    <span data-i18n="lbl_follow_zones">${t('lbl_follow_zones')}</span>
-                                </label>
-                                <div id="group-follow-chips" style="display:flex; align-items:center; gap:3px; opacity:0.35; pointer-events:none; transition:opacity 0.2s;">
-                                    <button type="button" class="follow-chip active" id="chip-follow-detect" data-type="hw_detect_zones" title="${t('tip_follow_detect')}" style="height:19px; padding:0 5px; font-size:10px; border-radius:3px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; border:1px solid #00e676; background:rgba(0,230,118,0.2); color:#00e676; font-weight:bold; box-sizing:border-box;">${t('chip_follow_detect')}</button>
-                                    <button type="button" class="follow-chip" id="chip-follow-block" data-type="hw_block_zones" title="${t('tip_follow_block')}" style="height:19px; padding:0 5px; font-size:10px; border-radius:3px; cursor:pointer; display:none; align-items:center; justify-content:center; border:1px solid var(--divider-color, rgba(128,128,128,0.3)); background:rgba(128,128,128,0.08); color:var(--secondary-text-color, #888); box-sizing:border-box;">${t('chip_follow_block')}</button>
-                                    <button type="button" class="follow-chip" id="chip-follow-stay" data-type="hw_stay_zones" title="${t('tip_follow_stay')}" style="height:19px; padding:0 5px; font-size:10px; border-radius:3px; cursor:pointer; display:none; align-items:center; justify-content:center; border:1px solid var(--divider-color, rgba(128,128,128,0.3)); background:rgba(128,128,128,0.08); color:var(--secondary-text-color, #888); box-sizing:border-box;">${t('chip_follow_stay')}</button>
-                                </div>
-                            </div>
                             <div id="layout-inner-params">
                                 <div class="row">
                                     <label style="width:10px">X</label><input type="number" id="layout-x" step="1">
@@ -753,24 +655,6 @@ export class RadarUI {
                                         <span style="font-size:9px; color:#777; margin-left:1px;">m</span>
                                     </div>
                                 </div>
-                                <div class="row" id="row-z-range" style="justify-content: space-between; align-items: center; gap: 3px; margin-top: 3px;">
-                                    <div style="display:flex; align-items:center; gap:2px; flex-shrink:0;">
-                                        <label style="width:auto; font-size:9px; color:#1976D2; font-weight:bold; margin:0;" title="感知高度范围 (Z-Axis Range)" data-i18n="lbl_z_range">Z-Range</label>
-                                    </div>
-                                    <div style="display:flex; align-items:center; gap:2px; flex-shrink:0;">
-                                        <span style="font-size:9px; color:#888;">Min</span>
-                                        <input type="number" id="layout-z-min" step="0.1" min="-6.0" max="6.0" value="-6.0" style="width:34px; height:22px; box-sizing:border-box; padding:0 1px; text-align:center; font-size:10px;" title="Z Min (m)">
-                                        <span style="font-size:9px; color:#666;">~</span>
-                                        <span style="font-size:9px; color:#888;">Max</span>
-                                        <input type="number" id="layout-z-max" step="0.1" min="-6.0" max="6.0" value="6.0" style="width:34px; height:22px; box-sizing:border-box; padding:0 1px; text-align:center; font-size:10px;" title="Z Max (m)">
-                                        <span style="font-size:9px; color:#777; margin-left:1px;">m</span>
-                                    </div>
-                                </div>
-                                <div class="row" id="row-point-cloud" style="display:none; justify-content: flex-end; margin-top: 4px;">
-                                    <label style="width:auto; text-align:right; color:#00e5ff; font-weight:bold; margin-right:4px;">3D Point Cloud</label>
-                                    <input type="checkbox" id="chk-eng-mode" style="margin:0 2px 0 0; width:13px; height:13px; cursor:pointer;" title="Enable Hardware Point Cloud & WS Stream">
-                                    <span style="font-size:9px; color:#888; margin-left:2px;">(High CPU)</span>
-                                </div>
                                 <div class="actions">
                                     <button id="btn-save-layout" class="primary">SAVE</button>
                                     <button id="btn-cancel-layout">Undo</button>
@@ -787,21 +671,6 @@ export class RadarUI {
                             <input type="text" id="in-name" placeholder="Name" style="flex:2;">
                             <label id="lbl-delay" style="width:auto; margin:0 2px; color:#aaa;">Dly</label>
                             <input type="number" id="in-delay" placeholder="0" style="width:30px; text-align:center;" title="Delay">
-                        </div>
-                        <div id="row-zone-z-range" class="row point-editor" style="display:none; align-items:center; gap:2px; flex-wrap:nowrap;">
-                            <label style="width:auto; margin:0 1px; color:#1976D2; font-weight:bold; font-size:9.5px; flex-shrink:0;" title="Per-zone Height Range">Z</label>
-                            <label class="chk-label" style="height:18px; padding:0 2px; font-size:9px; margin:0; flex-shrink:0; display:inline-flex; align-items:center; gap:2px;" title="Follow Global">
-                                <input type="checkbox" id="chk-zone-custom-z" style="width:11px; height:11px; margin:0; cursor:pointer;">
-                                <span id="lbl-zone-custom-z" style="font-size:9px; white-space:nowrap;">Global</span>
-                            </label>
-                            <div id="box-zone-z-inputs" style="display:none; flex:1; align-items:center; gap:2px; min-width:0;">
-                                <input type="number" id="in-zone-z-min" step="0.1" min="-6.0" max="6.0" placeholder="Min" style="flex:1; width:30px; min-width:0; height:18px; text-align:center; font-size:9.5px; padding:0 1px;" title="Z Min (m)">
-                                <span style="font-size:9px; color:#666; flex-shrink:0;">~</span>
-                                <input type="number" id="in-zone-z-max" step="0.1" min="-6.0" max="6.0" placeholder="Max" style="flex:1; width:30px; min-width:0; height:18px; text-align:center; font-size:9.5px; padding:0 1px;" title="Z Max (m)">
-                            </div>
-                            <div id="box-zone-z-global" style="display:flex; flex:1; align-items:center; justify-content:center; font-size:9px; color:#888; font-family:monospace; background:rgba(255,255,255,0.05); border-radius:2px; height:18px; min-width:0;">
-                                <span id="val-zone-z-global" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">🌐 Global</span>
-                            </div>
                         </div>
                         <div id="pt-editor" class="row point-editor">
                             <label>Pt</label>
@@ -1000,15 +869,6 @@ export class RadarUI {
                             </div>
                             <span id="val-mjs" style="width:30px; text-align:right">2.5m/s</span>
                         </div>
-                        <div class="row" id="row-ab-dur">
-                            <label style="width:40px" title="Auto-Block Scan Duration (5-50s)">AB_Time</label>
-                            <div class="slider-row">
-                                <button class="stepper" id="btn-ab-minus">-</button>
-                                <input type="range" id="set-ab-range" min="5" max="50" step="5" class="slider">
-                                <button class="stepper" id="btn-ab-plus">+</button>
-                            </div>
-                            <span id="val-ab" style="width:30px; text-align:right">15s</span>
-                        </div>
                         </div> <!-- ✨ 结束滚动区域 -->
                         <div class="separator" style="margin: 1px 0;"></div>
                         <div class="actions">
@@ -1084,10 +944,9 @@ export class RadarUI {
             if (state && state.data) {
                 for (const [rName, rConf] of Object.entries(state.data)) {
                     if (['global_zones', 'global_config', 'fused_targets'].includes(rName)) continue;
-                    const caps = rConf.capabilities || {};
                     const layout = rConf.layout || {};
-                    const rType = parseInt(layout.radar_type || caps.radar_type || 1);
-                    if (rType === 3 || caps.z) {
+                    const rType = parseInt(layout.radar_type || 1);
+                    if (rType === 3) {
                         has3D = true;
                         break;
                     }
@@ -1097,7 +956,7 @@ export class RadarUI {
         }
         const fallBanner = this.root.getElementById('fall-alert-banner');
         if (fallBanner) {
-            const fusedList = state.directFusedTargets || state.fused_targets || [];
+            const fusedList = state.fused_targets || [];
             const fallenTarget = fusedList.find(t => t.posture === 'fallen');
             const suspectedTarget = fusedList.find(t => t.posture === 'suspected_fall');
             if (fallenTarget) {
@@ -1162,11 +1021,8 @@ export class RadarUI {
             const innerParams = this.root.getElementById('layout-inner-params');
             const layoutScroll = this.root.getElementById('layout-scroll-area');
             const btnFov = this.root.getElementById('btn-edit-fov');
-            const btnWeb = this.root.getElementById('btn-radar-web');
-            const btnOta = this.root.getElementById('btn-radar-ota');
             const selRadar = this.root.getElementById('sel-radar');
             const btnAdd = this.root.getElementById('btn-add-radar');
-            const btnEdit = this.root.getElementById('btn-edit-radar');
             const btnPause = this.root.getElementById('btn-pause-radar');
             const btnDel = this.root.getElementById('btn-del-radar');
             if (state.fov_edit_mode) {
@@ -1175,16 +1031,12 @@ export class RadarUI {
                 show(zPanel); 
                 if (rowSelectType) rowSelectType.style.display = 'none';
                 if (selType) { 
-                    const currentTypeStr = state.radar_zone_type === 'hw_block_zones' ? `🟥 ${this.t('zone_hw_block', state)}` : (state.radar_zone_type === 'hw_detect_zones' ? `🟩 ${this.t('zone_hw_detect', state)}` : (state.radar_zone_type === 'hw_stay_zones' ? `🟪 ${this.t('zone_hw_stay', state)}` : `🟨 ${this.t('zone_monitor', state)}`));
-                    selType.innerHTML = `<option value="${state.radar_zone_type || 'monitor_zones'}">${currentTypeStr}</option>`; 
-                    selType.value = state.radar_zone_type || 'monitor_zones'; 
+                    selType.innerHTML = `<option value="monitor_zones">🟨 ${this.t('zone_monitor', state)}</option>`;
+                    selType.value = 'monitor_zones';
                 }
                 if(btnFov) { btnFov.innerText = "✔"; btnFov.className = "success"; }
-                if(btnWeb) btnWeb.disabled = true;
-                if(btnOta) btnOta.disabled = true;
                 if(selRadar) selRadar.disabled = true;
                 if(btnAdd) btnAdd.disabled = true;
-                if(btnEdit) btnEdit.disabled = true;
                 if(btnPause) btnPause.disabled = true;
                 if(btnDel) btnDel.disabled = true;
                 const selRadarZoneType = this.root.getElementById('sel-radar-zone-type');
@@ -1195,11 +1047,8 @@ export class RadarUI {
                 if(layoutScroll) layoutScroll.style.display = 'flex';
                 if(innerParams) innerParams.style.display = 'block';
                 if(btnFov) { btnFov.innerText = "✏️"; btnFov.className = "warning"; }
-                if(btnWeb) btnWeb.disabled = false;
-                if(btnOta) btnOta.disabled = false;
                 if(selRadar) selRadar.disabled = false;
                 if(btnAdd) btnAdd.disabled = false;
-                if(btnEdit) btnEdit.disabled = false;
                 if(btnPause) btnPause.disabled = (!state.radar || state.radar === 'rd_default');
                 if(btnDel) btnDel.disabled = false;
                 const selRadarZoneType = this.root.getElementById('sel-radar-zone-type');
@@ -1208,11 +1057,6 @@ export class RadarUI {
                 if(btnZoneView) btnZoneView.disabled = false;
                 this.updateZoneViewModeBtn(state);
             }
-            const btnAutoBlock = this.root.getElementById('btn-auto-block');
-            if (btnAutoBlock) {
-                btnAutoBlock.style.display = (state.radar_zone_type === 'hw_block_zones' && !state.fov_edit_mode) ? 'inline-block' : 'none';
-            }
-            this.updateRadarActionButtons(state, state.hass);
         } else if (state.editMode === 'zone') {
             show(zPanel);
             active(bZone, true);
@@ -1243,7 +1087,6 @@ export class RadarUI {
         const inDelay = this.root.getElementById('in-delay');
         const ptX = this.root.getElementById('pt-x');
         const ptY = this.root.getElementById('pt-y');
-        const rowZRange = this.root.getElementById('row-zone-z-range');
         const isEditing = (state.editMode === 'zone' || (state.editMode === 'layout' && state.fov_edit_mode));
         const btnSave = this.root.getElementById('btn-save');
         const btnDel = this.root.getElementById('btn-del-zone');
@@ -1276,82 +1119,13 @@ export class RadarUI {
             const isActiveDelay = (this.root.activeElement === inDelay);
             const forceUpdateDelay = hasSwitchedZone || hasSwitchedPoint || !isActiveDelay;
             if (inDelay && forceUpdateDelay) {
-                let def = (state.editMode === 'layout' && state.radar_zone_type === 'hw_stay_zones') ? 15 : 0;
-                inDelay.value = (z.delay !== undefined && z.delay !== null) ? z.delay : def;
+                inDelay.value = (z.delay !== undefined && z.delay !== null) ? z.delay : 0;
             }
             const ptEditor = this.root.getElementById('pt-editor');
-            const chkCustomZ = this.root.getElementById('chk-zone-custom-z');
-            const boxZInputs = this.root.getElementById('box-zone-z-inputs');
-            const boxZGlobal = this.root.getElementById('box-zone-z-global');
-            const valZGlobal = this.root.getElementById('val-zone-z-global');
-            const inZMin = this.root.getElementById('in-zone-z-min');
-            const inZMax = this.root.getElementById('in-zone-z-max');
-            const isHwZoneType = (state.editMode === 'layout' && ['hw_detect_zones', 'hw_block_zones', 'hw_stay_zones'].includes(state.radar_zone_type));
-            const curRadarData = (state.data && state.radar) ? state.data[state.radar] : null;
-            const caps = curRadarData?.capabilities || {};
-            const model = (caps.model || '').toUpperCase();
-            const rType = (state.layoutChanges?.radar_type !== undefined) 
-                ? state.layoutChanges.radar_type 
-                : (curRadarData?.layout?.radar_type !== undefined ? curRadarData.layout.radar_type : caps.radar_type);
-            const is3DRadar = !!(
-                model.includes('LD6004') || 
-                model.includes('LD6002') || 
-                caps.has_z || 
-                caps.z || 
-                rType === 3 || 
-                rType === '3' || 
-                curRadarData?.type === 3 || 
-                curRadarData?.type === '3'
-            );
-            const hasSelectedPoint = (state.selectedPointIndex !== null);
-            if (isHwZoneType && is3DRadar) {
-                if (hasSelectedPoint) {
-                    if (rowZRange) rowZRange.style.display = 'none';
-                    if (ptEditor) {
-                        ptEditor.style.display = 'flex';
-                        ptEditor.style.opacity = '1';
-                        ptEditor.style.pointerEvents = 'auto';
-                    }
-                } else {
-                    if (ptEditor) ptEditor.style.display = 'none';
-                    if (rowZRange) {
-                        rowZRange.style.display = 'flex';
-                        rowZRange.style.opacity = '1';
-                        rowZRange.style.pointerEvents = 'auto';
-                    }
-                    const isFollowGlobal = (z ? (z.custom_z !== true) : true);
-                    if (chkCustomZ) chkCustomZ.checked = isFollowGlobal;
-                    const lblCustomZ = this.root.getElementById('lbl-zone-custom-z');
-                    if (lblCustomZ) {
-                        lblCustomZ.style.display = 'inline';
-                        lblCustomZ.innerText = this.t('lbl_zone_follow_global', state);
-                    }
-                    if (boxZInputs) boxZInputs.style.display = isFollowGlobal ? 'none' : 'flex';
-                    if (boxZGlobal) boxZGlobal.style.display = isFollowGlobal ? 'flex' : 'none';
-                    let gMin = -6.0, gMax = 6.0;
-                    if (state.layoutChanges?.z_min !== undefined) gMin = parseFloat(state.layoutChanges.z_min);
-                    else if (curRadarData?.layout?.z_min !== undefined) gMin = parseFloat(curRadarData.layout.z_min);
-                    else if (curRadarData?.z_min !== undefined) gMin = parseFloat(curRadarData.z_min);
-                    if (state.layoutChanges?.z_max !== undefined) gMax = parseFloat(state.layoutChanges.z_max);
-                    else if (curRadarData?.layout?.z_max !== undefined) gMax = parseFloat(curRadarData.layout.z_max);
-                    else if (curRadarData?.z_max !== undefined) gMax = parseFloat(curRadarData.z_max);
-                    if (isNaN(gMin)) gMin = -6.0;
-                    if (isNaN(gMax)) gMax = 6.0;
-                    if (valZGlobal) valZGlobal.innerText = `🌐 [${gMin >= 0 ? '+' : ''}${gMin.toFixed(1)} ~ ${gMax >= 0 ? '+' : ''}${gMax.toFixed(1)}]m`;
-                    if (inZMin && (hasSwitchedZone || this.root.activeElement !== inZMin)) {
-                        inZMin.value = (z && z.z_min !== undefined) ? z.z_min : gMin;
-                    }
-                    if (inZMax && (hasSwitchedZone || this.root.activeElement !== inZMax)) {
-                        inZMax.value = (z && z.z_max !== undefined) ? z.z_max : gMax;
-                    }
-                }
-            } else {
-                if (rowZRange) rowZRange.style.display = 'none';
-                if (ptEditor) {
-                    ptEditor.style.display = 'flex';
-                    ptEditor.style.opacity = '1';
-                    ptEditor.style.pointerEvents = 'auto';
-                }
+            if (ptEditor) {
+                ptEditor.style.display = 'flex';
+                ptEditor.style.opacity = '1';
+                ptEditor.style.pointerEvents = 'auto';
             }
             if (state.selectedPointIndex !== null && ptX && ptY) {
                 const pts = Array.isArray(z) ? z : z.points;
@@ -1393,18 +1167,10 @@ export class RadarUI {
             const isAdding = state.isAddingNew || state.points.length > 0;
             if (!isAdding) {
                 if (inName) inName.value = '';
-                if (inDelay) {
-                    if (state.editMode === 'layout' && state.radar_zone_type === 'hw_stay_zones') {
-                        inDelay.value = '15';
-                    } else {
-                        inDelay.value = '';
-                    }
-                }
+                if (inDelay) inDelay.value = '';
             }
             if (ptX) ptX.value = '';
             if (ptY) ptY.value = '';
-            const rowZRangeSafe = rowZRange || (this.root ? this.root.getElementById('row-zone-z-range') : null);
-            if (rowZRangeSafe) rowZRangeSafe.style.display = 'none';
             const ptEditor = this.root.getElementById('pt-editor');
             if (ptEditor) {
                 ptEditor.style.display = 'flex';
@@ -1432,9 +1198,7 @@ export class RadarUI {
         if (inDelay) {
             let disableDelay = false;
             if (state.fov_edit_mode) {
-                if (state.radar_zone_type !== 'hw_stay_zones') {
-                    disableDelay = true;
-                }
+                disableDelay = true;
             } else {
                 if (state.type === 'exclude_zones' || state.type === 'entrance_zones' || state.type === 'monitor_zones') {
                     disableDelay = true;
@@ -1455,44 +1219,9 @@ export class RadarUI {
         const conf = state.data.global_config || {};
         const saveConfigBypass = (key, val) => {
             if (!state.hass) return;
-            const rootHost = this.root.host;
-            if (rootHost && rootHost.fullRawData) {
-                let fullData = JSON.parse(JSON.stringify(rootHost.fullRawData));
-                let mg = state.mapGroup || "default";
-                if (!fullData.maps) fullData.maps = {};
-                if (!fullData.maps[mg]) fullData.maps[mg] = {};
-                if (!fullData.maps[mg].config) fullData.maps[mg].config = {};
-                fullData.maps[mg].config[key] = val;
-                state.hass.callService('radar_map_manager', 'import_config', { config_json: JSON.stringify(fullData) });
-            } else {
-                const payload = { map_group: state.mapGroup || "default" };
-                payload[key] = val;
-                state.hass.callService('radar_map_manager', 'update_map_config', payload);
-            }
-            if (key === 'fall_threshold_h' || key === 'fall_duration') {
-                if (state && state.data && state.hass) {
-                    for (const [rName, rConf] of Object.entries(state.data)) {
-                        if (['global_zones', 'global_config', 'fused_targets'].includes(rName)) continue;
-                        const caps = rConf.capabilities || {};
-                        const layout = rConf.layout || {};
-                        const rType = parseInt(layout.radar_type || caps.radar_type || 1);
-                        if (rType === 3 || caps.z) {
-                            const safe_r = rName.toLowerCase().replace(/[\s-]/g, '_');
-                            let targetEntity = (key === 'fall_threshold_h') ? `number.${safe_r}_fall_height` : `number.${safe_r}_fall_duration`;
-                            if (state.hass && !state.hass.states[targetEntity]) {
-                                const alt = (key === 'fall_threshold_h') ? `number.${safe_r}_fall_height_threshold` : `number.${safe_r}_fall_confirmation_delay`;
-                                if (state.hass.states[alt]) targetEntity = alt;
-                            }
-                            if (state.hass.states[targetEntity]) {
-                                state.hass.callService('number', 'set_value', {
-                                    entity_id: targetEntity,
-                                    value: val
-                                });
-                            }
-                        }
-                    }
-                }
-            }
+            const payload = { map_group: state.mapGroup || "default" };
+            payload[key] = val;
+            state.hass.callService('radar_map_manager', 'update_map_config', payload);
         };
         const bindControl = (sliderId, labelId, btnMinusId, btnPlusId, configKey, defVal, unit, onChanged) => {
             const slider = this.root.getElementById(sliderId);
@@ -1604,7 +1333,6 @@ export class RadarUI {
         bindControl('set-mjb-range', 'val-mjb', 'btn-mjb-minus', 'btn-mjb-plus', 'max_jump_base', 1.5, 'm');
         bindControl('set-mjs-range', 'val-mjs', 'btn-mjs-minus', 'btn-mjs-plus', 'max_jump_speed', 2.5, 'm/s');
         bindControl('set-sh-range', 'val-sh', 'btn-sh-minus', 'btn-sh-plus', 'stationary_max_hold', 300, 's');
-        bindControl('set-ab-range', 'val-ab', 'btn-ab-minus', 'btn-ab-plus', 'auto_block_duration', 15, 's');
         bindControl('set-fall-h-input', null, 'btn-fall-h-minus', 'btn-fall-h-plus', 'fall_threshold_h', 0.40, '');
         bindControl('set-fall-dur-input', null, 'btn-fall-dur-minus', 'btn-fall-dur-plus', 'fall_duration', 5.0, '');
         const chkFallAlert = this.root.getElementById('chk-fall-alert');
@@ -1626,7 +1354,7 @@ export class RadarUI {
             const updateTrackState = () => {
                 const op = chkTrack.checked ? '1' : '0.3';
                 const ptr = chkTrack.checked ? 'auto' : 'none';
-                ['row-ema', 'row-verify', 'row-hbm', 'row-sh', 'row-mjb', 'row-mjs', 'row-ab-dur'].forEach(id => {
+                ['row-ema', 'row-verify', 'row-hbm', 'row-sh', 'row-mjb', 'row-mjs'].forEach(id => {
                     const el = this.root.getElementById(id);
                     if(el) { el.style.opacity = op; el.style.pointerEvents = ptr; }
                 });
@@ -1648,12 +1376,6 @@ export class RadarUI {
             let isShowTrails = (conf.show_trails !== undefined) ? conf.show_trails : true;
             if (this.root.activeElement !== chkTrails) chkTrails.checked = isShowTrails;
             chkTrails.onchange = (e) => saveConfigBypass('show_trails', e.target.checked);
-        }
-        const chkPc = this.root.getElementById('chk-show-pointcloud');
-        if (chkPc) {
-            let isShowPc = (conf.show_pointcloud !== undefined) ? conf.show_pointcloud : true;
-            if (this.root.activeElement !== chkPc) chkPc.checked = isShowPc;
-            chkPc.onchange = (e) => saveConfigBypass('show_pointcloud', e.target.checked);
         }
         const chkVerify = this.root.getElementById('chk-enable-verify');
         if (chkVerify) {
@@ -1764,126 +1486,28 @@ export class RadarUI {
         else if (state.data[rName]?.layout?.mirror_x !== undefined) mir = state.data[rName].layout.mirror_x;
         setVal('layout-mirror', mir);
         let rType = 1;
-        const caps = (state.data[rName] && state.data[rName].capabilities) || {};
         if (state.layoutChanges?.radar_type !== undefined) rType = state.layoutChanges.radar_type;
         else if (state.data[rName]?.layout?.radar_type !== undefined) rType = state.data[rName].layout.radar_type;
-        else if (caps.radar_type !== undefined) rType = caps.radar_type;
         else if (state.data[rName]?.layout?.enable_3d) rType = 1; 
         setVal('layout-radar-type', rType);
         const cbCeiling = this.root.getElementById('layout-ceiling');
         if (cbCeiling) {
-            const caps = (state.data[rName] && state.data[rName].capabilities) || {};
-                if (cbCeiling.disabled) cbCeiling.disabled = false;
-                cbCeiling.title = "勾选后切换为顶装模式 (非专属设备仅影响前端3D投影)";
-                if (cbCeiling.parentElement) cbCeiling.parentElement.style.opacity = "1";
-                cbCeiling.style.cursor = "pointer";
-                let finalChecked = false;
-                if (state.data[rName]?.layout?.ceiling_mount !== undefined) {
-                    finalChecked = state.data[rName].layout.ceiling_mount; 
-                }
-                if (caps.current_mount !== undefined) {
-                    finalChecked = (caps.current_mount === 'ceiling'); 
-                }
-                let safeName = rName.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
-                let entId = `select.${safeName}_install_mode`;
-                if (hass && !hass.states[entId]) {
-                    const found = Object.keys(hass.states).find(k => k.startsWith(`select.${safeName}`) && k.includes('install_mode'));
-                    if (found) entId = found;
-                }
-                if (hass && hass.states[entId]) {
-                    finalChecked = (hass.states[entId].state.toLowerCase() === 'ceiling');
-                }
-                if (state.layoutChanges && state.layoutChanges.ceiling_mount !== undefined) {
-                    finalChecked = state.layoutChanges.ceiling_mount; 
-                }
-                if (cbCeiling.checked !== finalChecked) {
-                    cbCeiling.checked = finalChecked;
-                }
+            if (cbCeiling.disabled) cbCeiling.disabled = false;
+            cbCeiling.title = "勾选后切换为顶装模式 (仅影响地图投影)";
+            if (cbCeiling.parentElement) cbCeiling.parentElement.style.opacity = "1";
+            cbCeiling.style.cursor = "pointer";
+            let finalChecked = !!state.data[rName]?.layout?.ceiling_mount;
+            if (state.layoutChanges && state.layoutChanges.ceiling_mount !== undefined) {
+                finalChecked = state.layoutChanges.ceiling_mount;
+            }
+            if (cbCeiling.checked !== finalChecked) cbCeiling.checked = finalChecked;
         }
         let hVal = state.data[rName]?.layout?.mount_height !== undefined 
             ? parseFloat(state.data[rName].layout.mount_height) : 2.2;
-        let safeNameH = rName.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
-        let hEntId = null;
-        const candidatesH = [
-            `number.${safeNameH}_install_height`,
-            `number.${safeNameH}_radar_height`,
-            `number.${safeNameH}_mount_height`
-        ];
-        if (hass) {
-            for (const c of candidatesH) {
-                if (hass.states[c]) { hEntId = c; break; }
-            }
-            if (!hEntId) {
-                const found = Object.keys(hass.states).find(k => 
-                    k.startsWith(`number.${safeNameH}`) && 
-                    !k.includes('fall') && 
-                    (k.includes('install_height') || k.includes('radar_height') || k.includes('mount_height'))
-                );
-                if (found) hEntId = found;
-            }
-        }
-        if (hEntId && hass && hass.states[hEntId] && hass.states[hEntId].state !== 'unavailable' && hass.states[hEntId].state !== 'unknown') {
-            const parsedH = parseFloat(hass.states[hEntId].state);
-            if (!isNaN(parsedH)) hVal = parsedH;
-        }
         if (state.layoutChanges && state.layoutChanges.mount_height !== undefined) {
             hVal = parseFloat(state.layoutChanges.mount_height);
         }
         setVal('layout-h', isNaN(hVal) ? 2.2 : hVal);
-        const rowZR = this.root.getElementById('row-z-range');
-        const inZMin = this.root.getElementById('layout-z-min');
-        const inZMax = this.root.getElementById('layout-z-max');
-        if (rowZR && rName) {
-            const is3DSupported = (caps.model === 'LD6002B' || caps.model === 'LD6004' || state.data[rName]?.layout?.radar_type === 3);
-            rowZR.style.display = is3DSupported ? 'flex' : 'none';
-            let zMinVal = state.data[rName]?.layout?.z_min !== undefined ? parseFloat(state.data[rName].layout.z_min) : -6.0;
-            let zMaxVal = state.data[rName]?.layout?.z_max !== undefined ? parseFloat(state.data[rName].layout.z_max) : 6.0;
-            if (state.layoutChanges && state.layoutChanges.z_min !== undefined) {
-                zMinVal = parseFloat(state.layoutChanges.z_min);
-            }
-            if (state.layoutChanges && state.layoutChanges.z_max !== undefined) {
-                zMaxVal = parseFloat(state.layoutChanges.z_max);
-            }
-            if (inZMin && this.root.activeElement !== inZMin) setVal('layout-z-min', isNaN(zMinVal) ? -6.0 : zMinVal);
-            if (inZMax && this.root.activeElement !== inZMax) setVal('layout-z-max', isNaN(zMaxVal) ? 6.0 : zMaxVal);
-        }
-        const chkEng = this.root.getElementById('chk-eng-mode');
-        const rowPc = this.root.getElementById('row-point-cloud');
-        if (chkEng && rowPc && rName) {
-            const isPointCloudSupported = (caps.model === 'LD6002B' || caps.model === 'LD6004');
-            rowPc.style.display = isPointCloudSupported ? 'flex' : 'none';
-            if (isPointCloudSupported) {
-                let safeName = rName.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
-                let entId = `switch.${safeName}_point_cloud_stream`;
-                if (hass && !hass.states[entId]) {
-                    const found = Object.keys(hass.states).find(k => k.startsWith(`switch.${safeName}`) && (k.includes('point_cloud') || k.includes('engineering') || k.includes('debug') || k.includes('pc_stream')));
-                    if (found) entId = found;
-                }
-                let isEngOn = false;
-                if (hass && hass.states[entId]) isEngOn = (hass.states[entId].state === 'on');
-                if (this.root.activeElement !== chkEng && !chkEng.dataset.locked) chkEng.checked = isEngOn;
-                chkEng.onchange = (e) => {
-                    const intendedState = e.target.checked;
-                    if (intendedState) {
-                        const confirmMsg = this.isZh(state) ? "⚠️ 警告：开启点云数据会大幅增加雷达发热与 Wi-Fi 带宽，仅建议在绘制盲区/调试时短暂使用！\n\n确定要立即开启 3D 点云直连通道吗？" : "⚠️ WARNING: Point Cloud greatly increases heat and Wi-Fi load. Recommended for debug only!\n\nEnable 3D point cloud stream now?";
-                        if (!confirm(confirmMsg)) { e.target.checked = false; return; }
-                    }
-                    if (!intendedState) {
-                        const root = this.root.host;
-                        if (root && root.renderer) { root.renderer.activePointCloud = null; }
-                    }
-                    chkEng.dataset.locked = "true";
-                    setTimeout(() => { delete chkEng.dataset.locked; }, 2000);
-                    chkEng.checked = intendedState;
-                    if (hass && hass.states[entId]) {
-                        hass.callService('switch', intendedState ? 'turn_on' : 'turn_off', { entity_id: entId });
-                    } else {
-                        alert(this.isZh(state) ? `⚠️ 实体不存在！请检查雷达是否已上线。(${entId})` : `⚠️ Entity not found! Check if radar is online. (${entId})`);
-                        chkEng.checked = !intendedState;
-                    }
-                };
-            }
-        }
         const btnPause = this.root.getElementById('btn-pause-radar');
         if (btnPause) {
             if (!rName || rName === 'rd_default') {
@@ -1908,78 +1532,6 @@ export class RadarUI {
                 }
             }
         }
-        this.updateRadarActionButtons(state, hass);
-        this.updateFollowZonesUI(state);
-    }
-    updateRadarActionButtons(state, hass) {
-        const sel = this.root.getElementById('sel-radar');
-        const rName = state.radar || (sel && sel.value) || '';
-        if (!rName || rName === 'rd_default') return;
-        const btnWeb = this.root.getElementById('btn-radar-web');
-        const btnOta = this.root.getElementById('btn-radar-ota');
-        const isZh = this.isZh(state);
-        const rData = state.data && state.data[rName];
-        let isExclusiveRadar = !!(rData && (rData.capabilities || rData.device_pin || rData.radar_ip || rData.auth_passed));
-        if (!isExclusiveRadar && hass && hass.states) {
-            const safeName = rName.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
-            if (hass.states[`update.${safeName}_firmware`] || Object.keys(hass.states).some(k => k.startsWith(`update.${safeName}`) && k.includes('firmware'))) {
-                isExclusiveRadar = true;
-            }
-        }
-        if (btnWeb) {
-            btnWeb.style.display = isExclusiveRadar ? 'inline-flex' : 'none';
-            if (isExclusiveRadar) {
-                const discIp = (this.root.host?.fullRawData?.discovered_radars?.[rName]?.ip || '').trim();
-                let ip = (rData && (rData.radar_ip || rData.ip)) ? (rData.radar_ip || rData.ip).trim() : '';
-                if (discIp && (!ip || !ip.includes('://'))) {
-                    ip = discIp;
-                }
-                if (!ip && hass && hass.devices) {
-                    const rLower = rName.toLowerCase();
-                    for (const dev of Object.values(hass.devices)) {
-                        const matchName = (dev.name && dev.name.toLowerCase() === rLower) ||
-                                          (dev.name_by_user && dev.name_by_user.toLowerCase() === rLower);
-                        const matchId = dev.identifiers && dev.identifiers.some(ids => Array.isArray(ids) && ids.some(id => String(id).toLowerCase().includes(rLower)));
-                        if ((matchName || matchId) && dev.configuration_url) {
-                            const m = dev.configuration_url.match(/https?:\/\/([^/:]+)/);
-                            if (m) { ip = m[1]; break; }
-                        }
-                    }
-                }
-                const displayHost = ip || `${rName}.local`;
-                btnWeb.title = isZh
-                    ? `打开雷达 Web 控制台 (http://${displayHost.replace(/:81$/, '')})`
-                    : `Open Radar Web Console (http://${displayHost.replace(/:81$/, '')})`;
-            }
-        }
-        if (btnOta) {
-            btnOta.style.display = isExclusiveRadar ? 'inline-flex' : 'none';
-            if (isExclusiveRadar) {
-                let safeName = rName.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
-                let updateEntId = `update.${safeName}_firmware`;
-                if (hass && !hass.states[updateEntId]) {
-                    const found = Object.keys(hass.states).find(k => k.startsWith(`update.${safeName}`) && k.includes('firmware'));
-                    if (found) updateEntId = found;
-                }
-                const updateEnt = hass && hass.states[updateEntId];
-                if (updateEnt && updateEnt.state === 'on') {
-                    btnOta.style.background = '#FF9800'; 
-                    const curVer = updateEnt.attributes?.installed_version || '';
-                    const newVer = updateEnt.attributes?.latest_version || '';
-                    btnOta.title = isZh 
-                        ? `🚀 发现新固件！当前: ${curVer}, 最新: ${newVer} (点击升级)`
-                        : `🚀 New Firmware! Current: ${curVer}, Latest: ${newVer} (Click to Upgrade)`;
-                    btnOta.innerHTML = '⬆️<span style="position:absolute;top:-2px;right:-2px;width:6px;height:6px;background:#ff1744;border-radius:50%;"></span>';
-                } else {
-                    btnOta.style.background = '#1976D2';
-                    const curVer = updateEnt ? (updateEnt.attributes?.installed_version || '') : '';
-                    btnOta.title = isZh
-                        ? (curVer ? `固件已是最新 (${curVer})，点击可检查或重新升级` : "检查并升级 RMM 雷达固件 (Cloud OTA)")
-                        : (curVer ? `Firmware Up to Date (${curVer}), click to check/upgrade` : "Check & Upgrade Radar Firmware (Cloud OTA)");
-                    btnOta.innerHTML = '☁️';
-                }
-            }
-        }
     }
     updateRadarList(state, config) {
         const sel = this.root.getElementById('sel-radar');
@@ -1997,16 +1549,7 @@ export class RadarUI {
         if (sortedNames.length === 0) { sel.add(new Option(this.t('no_radars', state), "")); return; }
         sortedNames.forEach(name => {
             if (name && name.trim() !== "") {
-                const rData = state.data && state.data[name];
-                let isEx = !!(rData && (rData.capabilities || rData.device_pin || rData.radar_ip || rData.auth_passed));
-                if (!isEx && state.hass && state.hass.states) {
-                    const safeName = name.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
-                    if (state.hass.states[`update.${safeName}_firmware`] || Object.keys(state.hass.states).some(k => k.startsWith(`update.${safeName}`) && k.includes('firmware'))) {
-                        isEx = true;
-                    }
-                }
-                const label = isEx ? `⭐ ${name}` : name;
-                const opt = new Option(label, name);
+                const opt = new Option(name, name);
                 if (name === currentVal) opt.selected = true;
                 sel.add(opt);
             }
@@ -2014,76 +1557,6 @@ export class RadarUI {
         if (!currentVal && sel.options.length > 0) {
             sel.selectedIndex = 0;
             state.radar = sel.value; 
-        }
-        this.updateFollowZonesUI(state);
-    }
-    updateFollowZonesUI(state) {
-        const rowFollow = this.root.getElementById('row-follow-zones');
-        if (!rowFollow) return;
-        const sel = this.root.getElementById('sel-radar');
-        const rName = state.radar || (sel && sel.value) || '';
-        if (!rName || rName === 'rd_default') {
-            rowFollow.style.display = 'none';
-            return;
-        }
-        const rData = state.data && state.data[rName];
-        const caps = (rData && rData.capabilities) || {};
-        let isExclusive = !!(rData && (rData.capabilities || rData.device_pin || rData.radar_ip || rData.auth_passed));
-        if (!isExclusive && state.hass && state.hass.states) {
-            const safeName = rName.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
-            if (state.hass.states[`update.${safeName}_firmware`] || Object.keys(state.hass.states).some(k => k.startsWith(`update.${safeName}`) && k.includes('firmware'))) {
-                isExclusive = true;
-            }
-        }
-        const hasHwZones = !!(caps.max_hw_zones > 0 || caps.hw_blind_zone);
-        if (!isExclusive || !hasHwZones) {
-            rowFollow.style.display = 'none';
-            return;
-        }
-        rowFollow.style.display = 'flex';
-        const chk = this.root.getElementById('layout-follow-zones');
-        const isEnabled = !!state.followZonesEnabled;
-        if (chk && this.root.activeElement !== chk) {
-            chk.checked = isEnabled;
-        }
-        const groupChips = this.root.getElementById('group-follow-chips');
-        if (groupChips) {
-            groupChips.style.opacity = isEnabled ? '1' : '0.35';
-            groupChips.style.pointerEvents = isEnabled ? 'auto' : 'none';
-        }
-        if (!state.followZoneTypes) {
-            state.followZoneTypes = { hw_detect_zones: true, hw_block_zones: false, hw_stay_zones: false };
-        }
-        const updateChipStyle = (el, isActive, activeColor) => {
-            if (!el) return;
-            if (isActive) {
-                el.classList.add('active');
-                el.style.border = `1px solid ${activeColor}`;
-                el.style.background = activeColor === '#00e676' ? 'rgba(0,230,118,0.2)' : (activeColor === '#ff5252' ? 'rgba(255,82,82,0.2)' : 'rgba(224,64,251,0.2)');
-                el.style.color = activeColor;
-                el.style.fontWeight = 'bold';
-            } else {
-                el.classList.remove('active');
-                el.style.border = '1px solid var(--divider-color, rgba(128,128,128,0.3))';
-                el.style.background = 'rgba(128,128,128,0.08)';
-                el.style.color = 'var(--secondary-text-color, #888)';
-                el.style.fontWeight = 'normal';
-            }
-        };
-        const chipDet = this.root.getElementById('chip-follow-detect');
-        if (chipDet) {
-            chipDet.style.display = 'inline-flex';
-            updateChipStyle(chipDet, !!state.followZoneTypes.hw_detect_zones, '#00e676');
-        }
-        const chipBlk = this.root.getElementById('chip-follow-block');
-        if (chipBlk) {
-            chipBlk.style.display = (caps.max_hw_zones > 0 || caps.hw_blind_zone) ? 'inline-flex' : 'none';
-            updateChipStyle(chipBlk, !!state.followZoneTypes.hw_block_zones, '#ff5252');
-        }
-        const chipSty = this.root.getElementById('chip-follow-stay');
-        if (chipSty) {
-            chipSty.style.display = (caps.model === 'LD6004') ? 'inline-flex' : 'none';
-            updateChipStyle(chipSty, !!state.followZoneTypes.hw_stay_zones, '#e040fb');
         }
     }
 }

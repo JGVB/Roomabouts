@@ -1,25 +1,9 @@
 
 const EDITOR_I18N = {
-    "hw_limit": { "zh": "⚠️ 操作被拒绝：当前雷达底层屏蔽区已达上限 ({0}个)。", "en": "⚠️ Operation denied: Hardware blind zones reached the limit of {0}." },
-    "not_supported": { "zh": "⚠️ 兼容性提示：该功能仅支持RMM专用雷达\n\n💡 您可以通过MONITOR或者EXCLUDE区域设置进行软件区域过滤。", "en": "⚠️ Compatibility Note: This feature only supports RMM exclusive radars.\n💡 You can use MONITOR or EXCLUDE for software filtering." },
-    "auth_fail_alert": { "zh": "⚠️ 鉴权失败：专属配对码错误或未提供，硬件级高级功能已锁定！\n\n请点击雷达列表旁的【✎】按钮输入正确的 PIN 码。", "en": "⚠️ Auth Failed: PIN incorrect or missing. Hardware advanced features locked!\n\nPlease click the [✎] button next to the radar list to enter the correct PIN." },
-    "hw_unsupported": { "zh": "⚠️ 硬件限制：当前雷达 ({0}) 不支持硬件级屏蔽功能！", "en": "⚠️ Hardware Limit: Current radar ({0}) does not support hardware-level blind zones!" },
     "modal_title": { "zh": "📡 添加雷达", "en": "📡 Add Radar" },
-    "modal_edit_title": { "zh": "📡 修改雷达参数", "en": "📡 Edit Radar Params" },
-    "modal_discovered": { "zh": "✨ 局域网内已发现的设备 (点击快捷选择):", "en": "✨ Discovered devices in LAN (click to select):" },
-    "modal_not_found": { "zh": "🔍 未自动嗅探到新雷达实体，请手动输入名称。", "en": "🔍 No new radar entity automatically sniffed, please enter name manually." },
+    "modal_discovered": { "zh": "✨ Home Assistant 中可用的实体 (点击快捷选择):", "en": "✨ Available Home Assistant entities (click to select):" },
+    "modal_not_found": { "zh": "🔍 未找到匹配实体，请手动输入名称。", "en": "🔍 No matching entity found; enter its base name manually." },
     "modal_lbl_name": { "zh": "雷达设备名称 (小写英文/数字/下划线):", "en": "Radar Name (lowercase/numbers/underscores):" },
-    "modal_lbl_pin": { "zh": "🔑 专属 8 位配对码 (非RMM专属雷达留空):", "en": "🔑 Exclusive 8-digit PIN (only for RMM exclusive radar):" },
-    "pair_box_title": { "zh": "⚡ 极速按键配对 (推荐)", "en": "⚡ Fast Button Pairing (Recommended)" },
-    "pair_box_desc": { "zh": "点击开启后，60 秒内双击雷达实体按键即可自动完成配对。", "en": "After starting, double-click the physical button on the radar within 60s to pair." },
-    "pair_btn_start": { "zh": "⚡ 开启按键配对 (60s)", "en": "⚡ Start Button Pairing (60s)" },
-    "pair_btn_waiting": { "zh": "⏳ 等待按键双击 ({0}s)...", "en": "⏳ Waiting for double click ({0}s)..." },
-    "pair_btn_cancel": { "zh": "✕ 取消", "en": "✕ Cancel" },
-    "pair_btn_timeout": { "zh": "⏱️ 配对超时，点击重试", "en": "⏱️ Pairing timed out, click to retry" },
-    "pair_btn_success": { "zh": "✅ 硬件双击配对成功！", "en": "✅ Hardware Pairing Succeeded!" },
-    "pair_badge_success": { "zh": "已自动获取配对码", "en": "PIN code acquired" },
-    "pair_manual_hint": { "zh": "(亦可在此手动输入)", "en": "(or enter manually below)" },
-    "modal_lbl_ip": { "zh": "🌐 雷达 IP 地址 (可选，.local 无法解析时必填):", "en": "🌐 Radar IP (optional, required if .local fails):" },
     "modal_btn_cancel": { "zh": "取消", "en": "Cancel" },
     "modal_btn_confirm": { "zh": "确定", "en": "Confirm" },
     "err_input": { "zh": "❌ 内部错误：找不到输入框，请尝试刷新页面。", "en": "❌ Internal error: Input fields not found, please refresh the page." },
@@ -39,30 +23,9 @@ const EDITOR_I18N = {
     "clear_all": { "zh": "清除所有区域？", "en": "Clear ALL zones?" },
     "sel_radar": { "zh": "请先选择一个雷达。", "en": "Please select a radar first." },
     "no_t1": { "zh": "未在当前雷达上找到活跃的 Target 1。无法冻结校准。", "en": "No active Target 1 found on this radar. Cannot freeze." },
-    "confirm_pc": { "zh": "⚠️ 警告：开启点云数据会大幅增加雷达发热与 Wi-Fi 带宽，仅建议在绘制盲区/调试时短暂使用！\n\n确定要立即开启 3D 点云直连通道吗？", "en": "⚠️ WARNING: Point Cloud greatly increases heat and Wi-Fi load. Recommended for debug only!\n\nEnable 3D point cloud stream now?" },
-    "hw_stay_unsupported": {
-        "zh": "⚠️ 硬件限制：当前雷达 ({0}) 不支持【驻留区 (HW Stay)】！\n\n💡 目前仅 LD6004 型号支持此区域。",
-        "en": "⚠️ Hardware Limit: Current radar ({0}) does not support [HW Stay Zone]!\n\n💡 Currently only the LD6004 model supports this zone."
-    },
-    "hw_stay_overflow_notice": {
-        "zh": "💡 提示：硬件仅支持前 4 个驻留区同步，当前防区将由集成端软件维持。",
-        "en": "💡 Notice: Hardware only supports syncing the first 4 stay zones; this zone will be maintained by software."
-    },
     "calib_prompt": {
         "zh": "请输入这条线段的真实物理长度（米）：\n例如: 4.5",
         "en": "Enter the real physical length of this line (Meters):\nFor example: 4.5"
-    },
-    "auto_block_prompt": {
-        "zh": "🪄 确定要启动【自动识别排除区】吗？\n\n1. 系统将开启 15 秒环境噪点深度扫描\n2. 扫描期间请离开雷达探测区域并保持环境无人移动\n3. 扫描结束后将自动识别固定微动噪点（如风扇、绿植）并生成排除区矩形",
-        "en": "🪄 Start [Auto Learn Block Zones]?\n\n1. System will scan stationary environment for 15 seconds\n2. Please stay clear of the detection area during scanning\n3. Upon completion, static noise sources (fans, plants) will be auto-converted into block zones"
-    },
-    "auto_block_started": {
-        "zh": "⏳ 自动识别排除区已启动！请保持探测区域静止，15 秒后将自动更新地图...",
-        "en": "⏳ Auto Learn Block Zones started! Please stay clear, map will update in 15s..."
-    },
-    "auto_block_completed": {
-        "zh": "✅ 自动识别排除区完成！已成功同步并更新地图。",
-        "en": "✅ Auto Learn Block Zones completed! Map updated successfully."
     },
     "layout_saved": {
         "zh": "✅ 雷达布局参数已保存成功！",
@@ -71,14 +34,6 @@ const EDITOR_I18N = {
     "zone_saved": {
         "zh": "✅ 防区配置已成功保存！",
         "en": "✅ Zone configuration saved successfully!"
-    },
-    "hw_zone_saved_confirmed": {
-        "zh": "✅ 硬件防区已成功保存，并已获得专属硬件二次确认！",
-        "en": "✅ Hardware zones saved and confirmed by exclusive hardware!"
-    },
-    "hw_zone_saved_unconfirmed": {
-        "zh": "✅ 硬件防区已保存至系统，但硬件尚未响应二次确认，请检查雷达在线状态。",
-        "en": "✅ Hardware zones saved to system, but hardware did not confirm. Please check radar connection."
     }
 };
 export class RadarEditor {
@@ -117,10 +72,11 @@ export class RadarEditor {
         const inDelay = this.root.getElementById('in-delay');
 		const selRadarType = this.root.getElementById('sel-radar-zone-type');
         if (selRadarType) {
-            if (!state.radar_zone_type) state.radar_zone_type = 'monitor_zones';
+            state.radar_zone_type = 'monitor_zones';
             selRadarType.value = state.radar_zone_type;
             selRadarType.onchange = (e) => {
-                state.radar_zone_type = e.target.value;
+                state.radar_zone_type = 'monitor_zones';
+                e.target.value = 'monitor_zones';
                 exitAddMode();
                 if(callbacks.resetSelection) callbacks.resetSelection();
             };
@@ -253,16 +209,6 @@ export class RadarEditor {
             this.renderer.draw(state, config, state.hass);
         });
         bindClick('btn-edit-fov', () => { 
-            if (!state.fov_edit_mode && state.editMode === 'layout' && (state.radar_zone_type === 'hw_detect_zones' || state.radar_zone_type === 'hw_block_zones' || state.radar_zone_type === 'hw_stay_zones')) {
-                const radarData = state.data[state.radar] || {};
-                if (!radarData.capabilities) { alert(this.t("not_supported")); return; }
-                if (radarData.capabilities && radarData.auth_passed !== true) { alert(this.t("auth_fail_alert")); return; }
-                if (state.radar_zone_type === 'hw_stay_zones' && radarData.capabilities.model !== 'LD6004') {
-                    alert(this.t("hw_stay_unsupported", radarData.capabilities.model || 'Unknown'));
-                    return; 
-                }
-                if (radarData.capabilities.max_hw_zones === 0) { alert(this.t("hw_unsupported", radarData.capabilities.model || 'Unknown')); return; }
-            }
             if (state.fov_edit_mode) {
                 if (state.hasUnsavedChanges) {
                     const isZoneEdited = (state.selectedIndex !== null) || (state.points && state.points.length >= 3);
@@ -281,34 +227,6 @@ export class RadarEditor {
             exitAddMode();
             if(callbacks.onToggleFOV) callbacks.onToggleFOV(); 
         });
-        bindClick('btn-auto-block', async () => {
-            if (!state.radar) {
-                alert(this.t("sel_radar"));
-                return;
-            }
-            const radarData = state.data[state.radar] || {};
-            if (radarData.capabilities && radarData.auth_passed !== true) {
-                alert(this.t("auth_fail_alert"));
-                return;
-            }
-            const promptMsg = this.t("auto_block_prompt");
-            if (!confirm(promptMsg)) return;
-            const scanDuration = (config && config.auto_block_duration) ? parseInt(config.auto_block_duration) : 15;
-            try {
-                if (this.host.state.hass) {
-                    await this.host.state.hass.callService("mqtt", "publish", {
-                        topic: `rmm_radar/${state.radar}/auto_block/set`,
-                        payload: JSON.stringify({ action: "START", duration: scanDuration, mode: "merge" })
-                    });
-                }
-                if (this.host.showAutoBlockProgress) {
-                    this.host.showAutoBlockProgress(scanDuration);
-                }
-            } catch (err) {
-                console.error("AutoBlock failed to start:", err);
-                alert(this.t("ha_reject") + (err.message || err));
-            }
-        });
         bindLayoutInput(this, 'layout-x', 'origin_x', callbacks); 
         bindLayoutInput(this, 'layout-y', 'origin_y', callbacks); 
         bindLayoutInput(this, 'layout-rot', 'rotation', callbacks); 
@@ -316,25 +234,6 @@ export class RadarEditor {
         bindLayoutInput(this, 'layout-sy', 'scale_y', callbacks);
         bindLayoutInput(this, 'layout-ceiling', 'ceiling_mount', callbacks, true);
         bindLayoutInput(this, 'layout-mirror', 'mirror_x', callbacks, true); 
-        const chkFollow = this.root.getElementById('layout-follow-zones');
-        if (chkFollow) {
-            chkFollow.onchange = (e) => {
-                state.followZonesEnabled = e.target.checked;
-                this.ui.updateFollowZonesUI(state);
-            };
-        }
-        const followChips = this.root.querySelectorAll('.follow-chip');
-        followChips.forEach(chip => {
-            chip.onclick = () => {
-                if (!state.followZonesEnabled) return;
-                const type = chip.dataset.type;
-                if (!state.followZoneTypes) {
-                    state.followZoneTypes = { hw_detect_zones: true, hw_block_zones: false, hw_stay_zones: false };
-                }
-                state.followZoneTypes[type] = !state.followZoneTypes[type];
-                this.ui.updateFollowZonesUI(state);
-            };
-        });
         const selLayoutRadarType = this.root.getElementById('layout-radar-type');
         if(selLayoutRadarType) selLayoutRadarType.onchange = (e) => { 
             if(callbacks.onLayoutParamChange) callbacks.onLayoutParamChange('radar_type', parseInt(e.target.value)); 
@@ -344,60 +243,9 @@ export class RadarEditor {
             elH.onchange = (e) => {
                 const val = parseFloat(e.target.value);
                 if (isNaN(val)) return;
-                let safeName = state.radar?.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
-                let hEntId = null;
-                const candidates = [
-                    `number.${safeName}_install_height`,
-                    `number.${safeName}_radar_height`,
-                    `number.${safeName}_mount_height`
-                ];
-                if (state.hass) {
-                    for (const c of candidates) {
-                        if (state.hass.states[c]) { hEntId = c; break; }
-                    }
-                    if (!hEntId) {
-                        const found = Object.keys(state.hass.states).find(k => 
-                            k.startsWith(`number.${safeName}`) && 
-                            !k.includes('fall') && 
-                            (k.includes('install_height') || k.includes('radar_height') || k.includes('mount_height'))
-                        );
-                        if (found) hEntId = found;
-                    }
-                }
-                if (hEntId && state.hass && state.hass.states[hEntId] && state.hass.states[hEntId].state !== 'unavailable' && state.hass.states[hEntId].state !== 'unknown') {
-                    state.hass.callService('number', 'set_value', { entity_id: hEntId, value: String(val) });
-                }
                 if (callbacks.onLayoutParamChange) callbacks.onLayoutParamChange('mount_height', val);
             };
         }
-        const syncZRange = () => {
-            const elMin = this.root.getElementById('layout-z-min');
-            const elMax = this.root.getElementById('layout-z-max');
-            if (!elMin || !elMax) return;
-            let minVal = parseFloat(elMin.value);
-            let maxVal = parseFloat(elMax.value);
-            if (isNaN(minVal)) minVal = -6.0;
-            if (isNaN(maxVal)) maxVal = 6.0;
-            minVal = Math.max(-6.0, Math.min(6.0, parseFloat(minVal.toFixed(1))));
-            maxVal = Math.max(-6.0, Math.min(6.0, parseFloat(maxVal.toFixed(1))));
-            if (minVal > maxVal) { const tmp = minVal; minVal = maxVal; maxVal = tmp; }
-            elMin.value = minVal;
-            elMax.value = maxVal;
-            if (callbacks.onLayoutParamChange) {
-                callbacks.onLayoutParamChange('z_min', minVal);
-                callbacks.onLayoutParamChange('z_max', maxVal);
-            }
-            if (state.hass && state.radar && state.radar !== 'rd_default') {
-                state.hass.callService("mqtt", "publish", {
-                    topic: `rmm_radar/${state.radar}/z_range/set`,
-                    payload: JSON.stringify({ min: minVal, max: maxVal })
-                }).catch(err => console.warn("Failed to publish z_range/set:", err));
-            }
-        };
-        const elZMin = this.root.getElementById('layout-z-min');
-        const elZMax = this.root.getElementById('layout-z-max');
-        if (elZMin) elZMin.onchange = syncZRange;
-        if (elZMax) elZMax.onchange = syncZRange;
         bindStepper(this, 'btn-sx-minus', 'layout-sx', -0.1, callbacks, 'scale_x');
         bindStepper(this, 'btn-sx-plus', 'layout-sx', 0.1, callbacks, 'scale_x');
         bindStepper(this, 'btn-sy-minus', 'layout-sy', -0.1, callbacks, 'scale_y');
@@ -457,57 +305,23 @@ export class RadarEditor {
         bindClick('btn-save-layout', callbacks.onSaveLayout); 
         bindClick('btn-freeze', callbacks.onCalibrationToggle); 
         bindClick('btn-cancel-layout', callbacks.onCancelLayout);
-        const showRadarModal = (isEdit) => {
+        const showRadarModal = () => {
             if (document.getElementById('rmm-add-modal-overlay')) return;
             let defaultName = "";
-            let defaultPin = "";
-            let defaultIp = "";
-            let titleKey = "modal_title";
-            if (isEdit) {
-                if (!state.radar || state.radar === 'rd_default') return alert(this.t("sel_radar"));
-                defaultName = state.radar;
-                const rConf = state.data[state.radar] || {};
-                defaultPin = rConf.device_pin || "";
-                const discIp = (this.host?.fullRawData?.discovered_radars?.[state.radar]?.ip || '').trim();
-                let confIp = (rConf.radar_ip || rConf.ip || '').trim();
-                defaultIp = (discIp && (!confIp || !confIp.includes('://'))) ? discIp : confIp;
-                titleKey = "modal_edit_title";
-                if (!defaultIp && state.hass && state.hass.devices) {
-                    const rLower = state.radar.toLowerCase();
-                    for (const dev of Object.values(state.hass.devices)) {
-                        const matchName = (dev.name && dev.name.toLowerCase() === rLower) ||
-                                          (dev.name_by_user && dev.name_by_user.toLowerCase() === rLower);
-                        const matchId = dev.identifiers && dev.identifiers.some(ids => Array.isArray(ids) && ids.some(id => String(id).toLowerCase().includes(rLower)));
-                        if ((matchName || matchId) && dev.configuration_url) {
-                            const m = dev.configuration_url.match(/https?:\/\/([^/:]+)/);
-                            if (m) { defaultIp = m[1]; break; }
-                        }
-                    }
-                }
-            }
             const existingRadars = Object.keys(state.data || {}).filter(k => !['global_zones', 'global_config', 'fused_targets'].includes(k));
             const discovered = [];
-            if (!isEdit && this.host.fullRawData && this.host.fullRawData.discovered_radars) {
-                Object.entries(this.host.fullRawData.discovered_radars).forEach(([rName, caps]) => {
-                    if (!existingRadars.includes(rName)) {
-                        let model = caps.model || "Unknown";
-                        let mac = caps.mac ? ` - ${caps.mac}` : "";
-                        let ip = caps.ip ? ` - ${caps.ip}` : "";
-                        discovered.push({ name: rName, ip: caps.ip || "", label: `${rName} <span style="font-size:11px;opacity:0.7;font-weight:normal;">(${model}${mac}${ip})</span>` });
-                    }
-                });
-            }
-            if (!isEdit && state.hass && state.hass.states) {
+            if (state.hass && state.hass.states) {
                 Object.keys(state.hass.states).forEach(entity_id => {
-                    if (entity_id.startsWith('sensor.') && entity_id.endsWith('_presence_target_count')) {
-                        let foundName = entity_id.split('.')[1].replace('_presence_target_count', '');
+                    const match = entity_id.match(/^sensor\.(.+)_target_1_[xy]$/);
+                    if (match) {
+                        const foundName = match[1];
                         if (!existingRadars.includes(foundName) && !discovered.some(d => d.name === foundName)) {
                             discovered.push({ name: foundName, label: foundName });
                         }
                     }
                 });
             }
-            if (!isEdit && discovered.length > 0) {
+            if (discovered.length > 0) {
                 defaultName = discovered[0].name;
             }
             const modalOverlay = document.createElement('div');
@@ -515,40 +329,20 @@ export class RadarEditor {
             modalOverlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; display:flex; justify-content:center; align-items:center; font-family:-apple-system, BlinkMacSystemFont, sans-serif;";
             const modalBox = document.createElement('div');
             modalBox.style.cssText = "background:var(--card-background-color, #fff); color:var(--primary-text-color, #333); width:360px; max-width:90%; padding:24px; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.3);";
-            let html = `<h3 style="margin-top:0; margin-bottom:20px; font-size:18px; color:var(--primary-text-color, #333);">${this.t(titleKey)}</h3>`;
-            if (!isEdit) {
-                if (discovered.length > 0) {
+            let html = `<h3 style="margin-top:0; margin-bottom:20px; font-size:18px; color:var(--primary-text-color, #333);">${this.t('modal_title')}</h3>`;
+            if (discovered.length > 0) {
                 html += `<div style="font-size:13px; font-weight:bold; color:var(--secondary-text-color, #666); margin-bottom:10px;">${this.t('modal_discovered')}</div>`;
                 html += `<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px; max-height:160px; overflow-y:auto; padding-right:5px;">`;
                 discovered.forEach(d => {
-                    html += `<button type="button" class="btn-discovered" data-name="${d.name}" data-ip="${d.ip || ''}" style="padding:8px 16px; text-align:left; border:1px solid var(--primary-color, #03a9f4); background:transparent; color:var(--primary-color, #03a9f4); border-radius:9999px; cursor:pointer; font-size:14px; font-weight:bold; transition:all 0.2s;">${d.label}</button>`;
+                    html += `<button type="button" class="btn-discovered" data-name="${d.name}" style="padding:8px 16px; text-align:left; border:1px solid var(--primary-color, #03a9f4); background:transparent; color:var(--primary-color, #03a9f4); border-radius:9999px; cursor:pointer; font-size:14px; font-weight:bold; transition:all 0.2s;">${d.label}</button>`;
                 });
                 html += `</div>`;
             } else {
                 html += `<div style="font-size:13px; color:var(--secondary-text-color, #888); margin-bottom:20px; font-style:italic; padding:10px; background:var(--secondary-background-color, #f5f5f5); border-radius:6px;">${this.t('modal_not_found')}</div>`;
             }
-            }
             html += `
                 <label style="display:block; font-size:13px; font-weight:bold; margin-bottom:5px;">${this.t('modal_lbl_name')}</label>
-                <input type="text" id="rmm-input-name" value="${defaultName}" ${isEdit ? 'disabled' : ''} placeholder="例如: living_room" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid var(--divider-color, #ccc); border-radius:6px; margin-bottom:15px; background:var(--secondary-background-color, #fafafa); color:var(--primary-text-color, #333); font-size:14px; outline:none; ${isEdit ? 'opacity:0.6; cursor:not-allowed;' : ''}">
-                <!-- ⚡ 极速按键配对卡片 -->
-                <div style="background:var(--secondary-background-color, #f5f5f5); border:1px solid var(--divider-color, #e0e0e0); border-radius:8px; padding:12px; margin-bottom:15px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <span style="font-size:13px; font-weight:bold; color:var(--primary-text-color, #333);">${this.t('pair_box_title')}</span>
-                        <span id="rmm-pair-status-badge" style="font-size:11px; font-weight:bold; padding:2px 8px; border-radius:9999px; display:none;"></span>
-                    </div>
-                    <p style="font-size:12px; color:var(--secondary-text-color, #666); margin:0 0 10px 0; line-height:1.4;">
-                        ${this.t('pair_box_desc')}
-                    </p>
-                    <div style="display:flex; gap:8px;">
-                        <button type="button" id="rmm-btn-start-pair" style="flex:1; padding:9px 16px; border:none; background:var(--warning-color, #ff9800); color:#fff; border-radius:9999px; cursor:pointer; font-size:13px; font-weight:bold; transition:all 0.2s;">${this.t('pair_btn_start')}</button>
-                        <button type="button" id="rmm-btn-cancel-pair" style="display:none; padding:9px 16px; border:1px solid var(--error-color, #f44336); background:transparent; color:var(--error-color, #f44336); border-radius:9999px; cursor:pointer; font-size:13px; font-weight:bold; transition:all 0.2s;">${this.t('pair_btn_cancel')}</button>
-                    </div>
-                </div>
-                <label style="display:block; font-size:13px; font-weight:bold; margin-bottom:5px;">${this.t('modal_lbl_pin')} <span style="font-size:11px; font-weight:normal; color:var(--secondary-text-color, #888);">${this.t('pair_manual_hint')}</span></label>
-                <input type="text" id="rmm-input-pin" value="${defaultPin}" placeholder="输入控制台上的红底验证码" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid var(--divider-color, #ccc); border-radius:6px; margin-bottom:25px; text-transform:uppercase; font-weight:bold; letter-spacing:1px; background:var(--secondary-background-color, #fafafa); color:var(--primary-text-color, #333); font-size:14px; outline:none;">
-                <label style="display:block; font-size:13px; font-weight:bold; margin-bottom:5px;">${this.t('modal_lbl_ip')}</label>
-                <input type="text" id="rmm-input-ip" value="${defaultIp}" placeholder="例如: 192.168.1.100" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid var(--divider-color, #ccc); border-radius:6px; margin-bottom:25px; background:var(--secondary-background-color, #fafafa); color:var(--primary-text-color, #333); font-size:14px; outline:none;">
+                <input type="text" id="rmm-input-name" value="${defaultName}" placeholder="例如: living_room" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid var(--divider-color, #ccc); border-radius:6px; margin-bottom:25px; background:var(--secondary-background-color, #fafafa); color:var(--primary-text-color, #333); font-size:14px; outline:none;">
                 <div style="display:flex; justify-content:flex-end; gap:12px;">
                     <button type="button" id="rmm-btn-cancel" style="padding:10px 20px; border:none; background:var(--disabled-text-color, #ccc); color:#fff; border-radius:9999px; cursor:pointer; font-size:14px; font-weight:bold; transition:0.2s;">${this.t('modal_btn_cancel')}</button>
                     <button type="button" id="rmm-btn-confirm" style="padding:10px 20px; border:none; background:var(--primary-color, #03a9f4); color:#fff; border-radius:9999px; cursor:pointer; font-size:14px; font-weight:bold; transition:0.2s;">${this.t('modal_btn_confirm')}</button>
@@ -557,23 +351,7 @@ export class RadarEditor {
             modalBox.innerHTML = html;
             modalOverlay.appendChild(modalBox);
             document.body.appendChild(modalOverlay);
-            let pairTimer = null;
-            let unsubPair = null;
-            const stopPairWindow = () => {
-                if (pairTimer) {
-                    clearInterval(pairTimer);
-                    pairTimer = null;
-                }
-                if (state.hass && state.hass.callWS) {
-                    state.hass.callWS({ type: 'rmm/cancel_pair_window' }).catch(() => {});
-                }
-            };
             const closeModal = () => {
-                stopPairWindow();
-                if (unsubPair) {
-                    unsubPair();
-                    unsubPair = null;
-                }
                 modalOverlay.remove();
                 document.removeEventListener('keydown', escListener);
             };
@@ -584,177 +362,66 @@ export class RadarEditor {
             };
             document.addEventListener('keydown', escListener);
             const inputName = modalBox.querySelector('#rmm-input-name');
-            const inputPin = modalBox.querySelector('#rmm-input-pin');
-            const btnStartPair = modalBox.querySelector('#rmm-btn-start-pair');
-            const btnCancelPair = modalBox.querySelector('#rmm-btn-cancel-pair');
-            const pairBadge = modalBox.querySelector('#rmm-pair-status-badge');
-            const resetPairUI = () => {
-                if (pairTimer) {
-                    clearInterval(pairTimer);
-                    pairTimer = null;
-                }
-                btnStartPair.innerText = this.t('pair_btn_start');
-                btnStartPair.style.background = 'var(--warning-color, #ff9800)';
-                btnStartPair.disabled = false;
-                btnCancelPair.style.display = 'none';
-            };
-            btnCancelPair.onclick = () => {
-                stopPairWindow();
-                resetPairUI();
-                btnStartPair.innerText = this.t('pair_btn_start');
-            };
-            btnStartPair.onclick = async () => {
-                const targetName = inputName ? inputName.value.trim() : "";
-                try {
-                    if (state.hass && state.hass.callWS) {
-                        await state.hass.callWS({
-                            type: 'rmm/start_pair_window',
-                            radar_name: targetName,
-                            timeout: 60
-                        });
-                    }
-                } catch (err) {
-                    console.error("RMM: Failed to start pair window", err);
-                    alert("启动配对失败: " + (err.message || err));
-                    return;
-                }
-                let secondsLeft = 60;
-                btnStartPair.innerText = this.t('pair_btn_waiting', secondsLeft);
-                btnStartPair.style.background = 'var(--primary-color, #03a9f4)';
-                btnStartPair.disabled = true;
-                btnCancelPair.style.display = 'block';
-                if (pairTimer) clearInterval(pairTimer);
-                pairTimer = setInterval(() => {
-                    secondsLeft--;
-                    if (secondsLeft <= 0) {
-                        resetPairUI();
-                        btnStartPair.innerText = this.t('pair_btn_timeout');
-                    } else {
-                        btnStartPair.innerText = this.t('pair_btn_waiting', secondsLeft);
-                    }
-                }, 1000);
-            };
-            if (state.hass && state.hass.connection && state.hass.connection.subscribeEvents) {
-                state.hass.connection.subscribeEvents((ev) => {
-                    const data = ev.data || {};
-                    if (data.success && data.device_pin) {
-                        const curName = inputName ? inputName.value.trim().toLowerCase() : "";
-                        const matched = (data.radar_name || "").trim().toLowerCase();
-                        if (curName && matched && curName !== matched) return;
-                        stopPairWindow();
-                        if (inputName && !inputName.value && data.radar_name) {
-                            inputName.value = data.radar_name;
-                        }
-                        inputPin.value = data.device_pin;
-                        btnStartPair.innerText = this.t('pair_btn_success');
-                        btnStartPair.style.background = '#4CAF50';
-                        btnStartPair.disabled = true;
-                        btnCancelPair.style.display = 'none';
-                        pairBadge.style.display = 'inline-block';
-                        pairBadge.style.background = '#e8f5e9';
-                        pairBadge.style.color = '#2e7d32';
-                        pairBadge.innerText = this.t('pair_badge_success');
-                    }
-                }, "rmm_pair_result").then(unsub => {
-                    unsubPair = unsub;
-                });
+            const discBtns = modalBox.querySelectorAll('.btn-discovered');
+            if (discBtns.length > 0) {
+                discBtns[0].style.background = 'var(--primary-color, #03a9f4)';
+                discBtns[0].style.color = '#fff';
             }
-            if (!isEdit) {
-                const discBtns = modalBox.querySelectorAll('.btn-discovered');
-                if (discBtns.length > 0) {
-                    discBtns[0].style.background = 'var(--primary-color, #03a9f4)';
-                    discBtns[0].style.color = '#fff';
-                    setTimeout(() => inputPin.focus(), 100); 
-                }
-                discBtns.forEach(btn => {
-                    btn.onclick = () => {
-                        discBtns.forEach(b => { 
-                            b.style.background = 'transparent'; 
-                            b.style.color = 'var(--primary-color, #03a9f4)'; 
-                        });
-                        btn.style.background = 'var(--primary-color, #03a9f4)';
-                        btn.style.color = '#fff';
-                        inputName.value = btn.getAttribute('data-name');
-                        const discIp = btn.getAttribute('data-ip');
-                        const ipField = modalBox.querySelector('#rmm-input-ip');
-                        if (ipField && discIp) {
-                            ipField.value = discIp;
-                        }
-                        inputPin.focus();
-                    };
-                });
-            }
+            discBtns.forEach(btn => {
+                btn.onclick = () => {
+                    discBtns.forEach(b => {
+                        b.style.background = 'transparent';
+                        b.style.color = 'var(--primary-color, #03a9f4)';
+                    });
+                    btn.style.background = 'var(--primary-color, #03a9f4)';
+                    btn.style.color = '#fff';
+                    inputName.value = btn.getAttribute('data-name');
+                    inputName.focus();
+                };
+            });
             modalBox.querySelector('#rmm-btn-cancel').onclick = () => {
                 closeModal();
             };
             modalBox.querySelector('#rmm-btn-confirm').onclick = () => {
                 const nameField = modalBox.querySelector('#rmm-input-name');
-                const pinField = modalBox.querySelector('#rmm-input-pin');
-                const ipField = modalBox.querySelector('#rmm-input-ip');
-                if (!nameField || !pinField) {
+                if (!nameField) {
                     alert(this.t("err_input"));
                     return;
                 }
                 const rawName = nameField.value;
-                const rawPin = pinField.value;
-                const rawIp = ipField ? ipField.value.trim() : "";
                 if (!rawName || !rawName.trim()) {
                     alert(this.t("empty_name"));
                     nameField.focus();
                     return;
                 }
                 const lowerName = rawName.trim().toLowerCase();
-                const finalPin = rawPin.replace(/[\s-]/g, '').toUpperCase(); 
-                console.log(`RMM Debug: 准备发送数据 - 名称: ${lowerName}, 密码: [${finalPin}]`);
-                if (!isEdit && state.data && state.data[lowerName]) { 
+                if (state.data && state.data[lowerName]) {
                     alert(this.t("dup_name", lowerName)); 
                     return; 
                 }
                 closeModal();
                 const payload = { 
                     radar_name: lowerName, 
-                    map_group: state.mapGroup || "default",
-                    device_pin: finalPin, 
-                    radar_ip: rawIp
+                    map_group: state.mapGroup || "default"
                 };
                 state.hass.callService('radar_map_manager', 'add_radar', payload)
-                .then(() => {
-                    console.log("RMM: 🚀 add_radar 请求发送成功！");
-                })
                 .catch(err => {
                     alert(this.t("ha_reject") + JSON.stringify(err));
                 });
                 setTimeout(() => {
                     if (!state.data[lowerName]) {
-                        state.data[lowerName] = { layout: {}, monitor_zones: [], hardware_zones: [] }; 
-                } else if (isEdit) {
-                    state.data[lowerName].device_pin = finalPin;
-                    state.data[lowerName].radar_ip = rawIp;
-                }
+                        state.data[lowerName] = { layout: {}, monitor_zones: [] };
+                    }
                     this.ui.updateRadarList(state, config); 
                     const sel = this.root.getElementById('sel-radar'); 
                     if(sel) { 
                         sel.value = lowerName; 
                         if(callbacks.onRadarChange) callbacks.onRadarChange(lowerName, sel); 
                     }
-                if (isEdit) {
-                    console.log("RMM: Parameters updated. If WebSocket tunnel doesn't auto-reconnect, please refresh the page.");
-                }
                 }, 500);
             };
     };
-    bindClick('btn-add-radar', () => showRadarModal(false));
-        bindClick('btn-edit-radar', () => {
-            if (!state.radar || state.radar === 'rd_default') {
-                return alert(this.t("sel_radar"));
-            }
-            const radarData = state.data[state.radar] || {};
-            if (!radarData.capabilities) {
-                alert(this.t("not_supported"));
-                return; 
-            }
-            showRadarModal(true);
-        });
+        bindClick('btn-add-radar', showRadarModal);
         bindClick('btn-pause-radar', () => {
             if (!state.radar || state.radar === 'rd_default') return alert(this.t("sel_radar"));
             const rName = state.radar;
@@ -762,23 +429,13 @@ export class RadarEditor {
             const nextPaused = !(currentData.paused === true);
             if (!state.data[rName]) state.data[rName] = {};
             state.data[rName].paused = nextPaused;
-            if (nextPaused) {
-                if (this.renderer.activePointCloud && this.renderer.activePointCloud.rName === rName) {
-                    this.renderer.activePointCloud = null;
-                }
-                if (this.host.state && this.host.state.wsTargets && this.host.state.wsTargets[rName]) {
-                    this.host.state.wsTargets[rName].targets = [];
-                }
-            }
             this.ui.updateLayoutInputs(state, state.hass);
             this.renderer.draw(state, config, state.hass);
             state.hass.callService('radar_map_manager', 'set_radar_pause', {
                 radar_name: rName,
                 paused: nextPaused
-            }).then(() => {
-                console.log(`RMM: Radar '${rName}' pause state set to: ${nextPaused}`);
             }).catch(err => {
-                console.error(`RMM: Failed to set radar pause state:`, err);
+                console.error("RMM: Failed to set radar pause state:", err);
                 state.data[rName].paused = !nextPaused;
                 this.ui.updateLayoutInputs(state, state.hass);
                 this.renderer.draw(state, config, state.hass);
@@ -796,93 +453,6 @@ export class RadarEditor {
                     this.ui.updateRadarList(state, config); this.ui.updateLayoutInputs(state, state.hass); 
                     this.renderer.draw(state, config, state.hass); 
                 }, 500);
-            }
-        });
-        bindClick('btn-radar-web', async () => {
-            if (!state.radar || state.radar === 'rd_default') return alert(this.t("sel_radar"));
-            const rName = state.radar;
-            const discIp = (this.host?.fullRawData?.discovered_radars?.[rName]?.ip || '').trim();
-            let ip = (state.data[rName]?.radar_ip || state.data[rName]?.ip || '').trim();
-            if (discIp && (!ip || !ip.includes('://'))) {
-                ip = discIp;
-            }
-            const stored = localStorage.getItem('rmm_panel_lang');
-            const isZh = (stored === 'zh' || (!stored && state.hass?.language?.startsWith('zh')));
-            const rLower = rName.toLowerCase();
-            if (!ip && state.hass?.devices) {
-                for (const dev of Object.values(state.hass.devices)) {
-                    const matchName = (dev.name && dev.name.toLowerCase() === rLower) ||
-                                      (dev.name_by_user && dev.name_by_user.toLowerCase() === rLower);
-                    const matchId = dev.identifiers && dev.identifiers.some(ids => Array.isArray(ids) && ids.some(id => String(id).toLowerCase().includes(rLower)));
-                    if ((matchName || matchId) && dev.configuration_url) {
-                        const m = dev.configuration_url.match(/https?:\/\/([^/:]+)/);
-                        if (m) { ip = m[1]; break; }
-                    }
-                }
-            }
-            if (!ip && state.hass && typeof state.hass.callWS === 'function') {
-                try {
-                    const devices = await state.hass.callWS({ type: 'config/device_registry/list' });
-                    for (const dev of (devices || [])) {
-                        const matchName = (dev.name && dev.name.toLowerCase() === rLower) ||
-                                          (dev.name_by_user && dev.name_by_user.toLowerCase() === rLower);
-                        const matchId = dev.identifiers && dev.identifiers.some(ids => Array.isArray(ids) && ids.some(id => String(id).toLowerCase().includes(rLower)));
-                        if ((matchName || matchId) && dev.configuration_url) {
-                            const m = dev.configuration_url.match(/https?:\/\/([^/:]+)/);
-                            if (m) { ip = m[1]; break; }
-                        }
-                    }
-                } catch(e) {}
-            }
-            if (ip && state.data && state.data[rName]) {
-                state.data[rName].radar_ip = ip;
-            }
-            const targetHost = ip || `${rName}.local`;
-            let clean = targetHost.replace(/:81$/, '');
-            let url = (clean.startsWith('http://') || clean.startsWith('https://')) ? clean : `http://${clean}`;
-            window.open(url, '_blank');
-        });
-        bindClick('btn-radar-ota', () => {
-            if (!state.radar || state.radar === 'rd_default') return alert(this.t("sel_radar"));
-            const rName = state.radar;
-            const stored = localStorage.getItem('rmm_panel_lang');
-            const isZh = (stored === 'zh' || (!stored && state.hass?.language?.startsWith('zh')));
-            let safeName = rName.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
-            let updateEntId = `update.${safeName}_firmware`;
-            if (state.hass && !state.hass.states[updateEntId]) {
-                const found = Object.keys(state.hass.states).find(k => k.startsWith(`update.${safeName}`) && k.includes('firmware'));
-                if (found) updateEntId = found;
-            }
-            const updateEnt = state.hass && state.hass.states[updateEntId];
-            if (updateEnt) {
-                const isNew = updateEnt.state === 'on';
-                const curVer = updateEnt.attributes?.installed_version || '未知';
-                const newVer = updateEnt.attributes?.latest_version || curVer;
-                const msg = isNew 
-                    ? (isZh ? `🚀 发现新固件版本！\n\n当前版本: ${curVer}\n最新版本: ${newVer}\n\n是否立即启动云端 OTA 升级？` : `🚀 New firmware available!\n\nCurrent: ${curVer}\nLatest: ${newVer}\n\nStart Cloud OTA upgrade now?`)
-                    : (isZh ? `当前雷达固件版本为: ${curVer}\n\n是否向雷达下发检查与重新升级指令？` : `Current radar firmware: ${curVer}\n\nSend check / re-upgrade command to radar?`);
-                if (confirm(msg)) {
-                    state.hass.callService('update', 'install', { entity_id: updateEnt.entity_id })
-                    .then(() => {
-                        alert(isZh ? "✅ 升级指令已下发！雷达正在后台下载更新并重启，请勿断电。" : "✅ Upgrade command sent! Radar is downloading firmware and will restart.");
-                    })
-                    .catch(() => {
-                        state.hass.callService('mqtt', 'publish', {
-                            topic: `rmm_radar/${rName}/update/set`,
-                            payload: 'INSTALL'
-                        });
-                        alert(isZh ? "✅ 已通过 MQTT 下发 OTA 升级指令，雷达正在执行更新！" : "✅ OTA upgrade command sent via MQTT.");
-                    });
-                }
-            } else {
-                const msg = isZh ? `是否向雷达 '${rName}' 下发尝试升级指令 (Cloud OTA)？` : `Send Cloud OTA upgrade command to radar '${rName}'?`;
-                if (confirm(msg)) {
-                    state.hass.callService('mqtt', 'publish', {
-                        topic: `rmm_radar/${rName}/update/set`,
-                        payload: 'INSTALL'
-                    });
-                    alert(isZh ? "✅ 已通过 MQTT 下发 OTA 升级指令，雷达正在执行更新！" : "✅ OTA upgrade command sent via MQTT.");
-                }
             }
         });
         const updatePointFromInput = () => {
@@ -923,59 +493,6 @@ export class RadarEditor {
         };
         if (inName) inName.oninput = updateZoneProps;
         if (inDelay) inDelay.oninput = updateZoneProps;
-        const chkCustomZ = this.root.getElementById('chk-zone-custom-z');
-        const inZMin = this.root.getElementById('in-zone-z-min');
-        const inZMax = this.root.getElementById('in-zone-z-max');
-        const boxZInputs = this.root.getElementById('box-zone-z-inputs');
-        const boxZGlobal = this.root.getElementById('box-zone-z-global');
-        if (chkCustomZ) {
-            chkCustomZ.onchange = () => {
-                if (state.selectedIndex !== null) {
-                    const list = getActiveList(state);
-                    if (list && list[state.selectedIndex]) {
-                        const z = list[state.selectedIndex];
-                        const isFollowGlobal = chkCustomZ.checked;
-                        z.custom_z = !isFollowGlobal;
-                        const lblCustomZ = this.root.getElementById('lbl-zone-custom-z');
-                        if (lblCustomZ) {
-                            lblCustomZ.style.display = 'inline';
-                            lblCustomZ.innerText = (state.lang === 'zh' || !state.lang ? '跟随全局' : 'Global');
-                        }
-                        if (boxZInputs) boxZInputs.style.display = z.custom_z ? 'flex' : 'none';
-                        if (boxZGlobal) boxZGlobal.style.display = z.custom_z ? 'none' : 'flex';
-                        if (z.custom_z) {
-                            if (z.z_min === undefined) z.z_min = inZMin ? (parseFloat(inZMin.value) || -6.0) : -6.0;
-                            if (z.z_max === undefined) z.z_max = inZMax ? (parseFloat(inZMax.value) || 6.0) : 6.0;
-                        }
-                        state.hasUnsavedChanges = true;
-                        this.ui.updateStatus(state, config);
-                    }
-                }
-            };
-        }
-        const updateZCoords = () => {
-            if (state.selectedIndex !== null && inZMin && inZMax) {
-                const list = getActiveList(state);
-                if (list && list[state.selectedIndex]) {
-                    const z = list[state.selectedIndex];
-                    const zm = parseFloat(inZMin.value);
-                    const zM = parseFloat(inZMax.value);
-                    if (!isNaN(zm)) z.z_min = zm;
-                    if (!isNaN(zM)) z.z_max = zM;
-                    z.custom_z = true;
-                    state.hasUnsavedChanges = true;
-                    this.ui.updateStatus(state, config);
-                }
-            }
-        };
-        if (inZMin) {
-            inZMin.oninput = updateZCoords;
-            inZMin.onchange = updateZCoords;
-        }
-        if (inZMax) {
-            inZMax.oninput = updateZCoords;
-            inZMax.onchange = updateZCoords;
-        }
         this.root.addEventListener('zone-select', (e) => {
             exitAddMode();
             if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT')) {
@@ -1005,20 +522,6 @@ export class RadarEditor {
             state.hasUnsavedChanges = false;
             if (state.calibration && state.calibration.active) {
                 state.calibration = { active: false, raw: null, map: null };
-            }
-            if (state.origFollowZonesSnapshot && state.radar && state.data[state.radar]) {
-                const rData = state.data[state.radar];
-                if (state.origFollowZonesSnapshot.hw_detect_zones) {
-                    rData.hw_detect_zones = JSON.parse(JSON.stringify(state.origFollowZonesSnapshot.hw_detect_zones));
-                }
-                if (state.origFollowZonesSnapshot.hw_block_zones) {
-                    rData.hw_block_zones = JSON.parse(JSON.stringify(state.origFollowZonesSnapshot.hw_block_zones));
-                }
-                if (state.origFollowZonesSnapshot.hw_stay_zones) {
-                    rData.hw_stay_zones = JSON.parse(JSON.stringify(state.origFollowZonesSnapshot.hw_stay_zones));
-                }
-                state.origFollowZonesSnapshot = null;
-                state.hasHwZoneChanges = false;
             }
             this.ui.updateLayoutInputs(state, state.hass); 
             this.renderer.draw(state, config, state.hass); 
@@ -1089,73 +592,14 @@ export class RadarEditor {
         if (btnSave) {
             btnSave.onclick = (e) => {
                 const list = getActiveList(state);
-                const isCreatingNew = (state.points.length >= 3);
                 if (state.points.length > 0 || (state.selectedIndex !== null && state.hasUnsavedChanges)) {
                     const elName = this.root.getElementById('in-name');
                     const elDelay = this.root.getElementById('in-delay');
                     let n = elName ? elName.value.trim() : ''; 
                     let d = elDelay ? parseFloat(elDelay.value) : NaN;
-                    if (isNaN(d)) {
-                        d = (state.editMode === 'layout' && state.radar_zone_type === 'hw_stay_zones') ? 15 : 0;
-                    }
-                    if (state.editMode === 'layout' && (state.radar_zone_type === 'hw_detect_zones' || state.radar_zone_type === 'hw_block_zones' || state.radar_zone_type === 'hw_stay_zones')) {
-                        const radarData = state.data[state.radar] || {};
-                        const caps = radarData.capabilities || {};
-                        const maxHwZones = caps.max_hw_zones !== undefined ? caps.max_hw_zones : 3; 
-                        if (state.radar_zone_type === 'hw_stay_zones' && caps.model !== 'LD6004') {
-                             alert(this.t("hw_stay_unsupported", caps.model || 'Unknown'));
-                             state.points = []; state.isAddingNew = false;
-                             this.renderer.draw(state, config, state.hass);
-                             this.ui.updateStatus(state, config);
-                             return; 
-                        }
-                        if (caps.model === 'LD2450' || caps.model === 'LD2452') {
-                            let otherType = '';
-                            let otherZones = [];
-                            if (state.radar_zone_type === 'hw_detect_zones') {
-                                otherType = 'hw_block_zones';
-                                otherZones = radarData.hw_block_zones || [];
-                            } else if (state.radar_zone_type === 'hw_block_zones') {
-                                otherType = 'hw_detect_zones';
-                                otherZones = radarData.hw_detect_zones || [];
-                            }
-                            if (otherZones.length > 0) {
-                                const typeNames = { 'hw_detect_zones': '【硬件检测区(绿)】', 'hw_block_zones': '【硬件屏蔽区(红)】' };
-                                const curName = typeNames[state.radar_zone_type];
-                                const otherName = typeNames[otherType];
-                                const msg = `⚠️ 硬件限制：LD2450 无法同时开启 ${curName} 和 ${otherName}！\n\n是否将已有的 ${otherName} 全部转换为 ${curName}？\n\n👉 点击 [确定] 自动合并并保存\n👉 点击 [取消] 放弃保存`;
-                                if (window.confirm(msg)) {
-                                    let availableSlots = maxHwZones - list.length;
-                                    if (isCreatingNew) availableSlots -= 1; 
-                                    otherZones.forEach(z => {
-                                        if (availableSlots > 0) { list.push(z); availableSlots--; }
-                                    });
-                                    state.data[state.radar][otherType] = []; 
-                                } else {
-                                    state.points = []; state.isAddingNew = false;
-                                    this.renderer.draw(state, config, state.hass);
-                                    this.ui.updateStatus(state, config);
-                                    return; 
-                                }
-                            }
-                        }
-                        const isLD6004Stay = (state.radar_zone_type === 'hw_stay_zones' && caps.model === 'LD6004');
-                        if (maxHwZones === 0 || (!isLD6004Stay && isCreatingNew && list.length >= maxHwZones)) {
-                            alert(this.t("hw_limit", maxHwZones));
-                            state.points = []; state.isAddingNew = false;
-                            this.renderer.draw(state, config, state.hass);
-                            this.ui.updateStatus(state, config);
-                            return; 
-                        }
-                    }
+                    if (isNaN(d)) d = 0;
                     if (!n) {
-                        if (state.editMode === 'layout') {
-                            const isHWB = state.radar_zone_type === 'hw_block_zones';
-                            const stayDefaultName = (list.length >= 4) ? `Stay ${list.length + 1}` : `HW Stay ${list.length + 1}`;
-                            n = isHWB ? `HW Block ${list.length + 1}` : (state.radar_zone_type === 'hw_detect_zones' ? `HW Detect ${list.length + 1}` : (state.radar_zone_type === 'hw_stay_zones' ? stayDefaultName : `Monitor ${list.length + 1}`));
-                        } else {
-                            n = `Zone ${list.length + 1}`;
-                        }
+                        n = state.editMode === 'layout' ? `Monitor ${list.length + 1}` : `Zone ${list.length + 1}`;
                     }
                     const normalize = (str) => (str || '').trim().toLowerCase().replace(/\s+/g, '_');
                     const targetSlug = normalize(n);
@@ -1164,35 +608,14 @@ export class RadarEditor {
                         return normalize(z.name) === targetSlug;
                     });
                     if (isDuplicate) { alert(this.t("name_conflict", n)); return; }
-                    const chkCustomZ = this.root.getElementById('chk-zone-custom-z');
-                    const inZMin = this.root.getElementById('in-zone-z-min');
-                    const inZMax = this.root.getElementById('in-zone-z-max');
-                    const isFollowGlobal = chkCustomZ ? chkCustomZ.checked : true;
-                    const isCustomZ = !isFollowGlobal;
-                    const zMin = inZMin ? (parseFloat(inZMin.value) || -6.0) : -6.0;
-                    const zMax = inZMax ? (parseFloat(inZMax.value) || 6.0) : 6.0;
                     if (state.points.length >= 3) {
                         const newZone = { name: n, delay: d, points: [...state.points] };
-                        if (isCustomZ) {
-                            newZone.custom_z = true;
-                            newZone.z_min = zMin;
-                            newZone.z_max = zMax;
-                        } else {
-                            newZone.custom_z = false;
-                        }
                         list.push(newZone);
                         state.points = [];
                         state.selectedIndex = list.length - 1;
                     } else if (state.selectedIndex !== null && list[state.selectedIndex]) {
                         list[state.selectedIndex].name = n;
                         list[state.selectedIndex].delay = d;
-                        if (chkCustomZ) {
-                            list[state.selectedIndex].custom_z = isCustomZ;
-                            if (isCustomZ) {
-                                list[state.selectedIndex].z_min = zMin;
-                                list[state.selectedIndex].z_max = zMax;
-                            }
-                        }
                     } else {
                         alert(this.t("draw_3")); return;
                     }
@@ -1206,29 +629,13 @@ export class RadarEditor {
                     if(callbacks.onSaveZoneConfig) callbacks.onSaveZoneConfig(); 
                 } 
                 else {
-                    if (state.editMode === 'layout' && (state.radar_zone_type === 'hw_detect_zones' || state.radar_zone_type === 'hw_block_zones' || state.radar_zone_type === 'hw_stay_zones')) {
-                        const radarData = state.data[state.radar] || {};
-                        if (radarData.capabilities && radarData.auth_passed !== true) { alert(this.t("auth_fail_alert")); return; }
-                        const caps = radarData.capabilities || {};
-                        const maxHwZones = caps.max_hw_zones !== undefined ? caps.max_hw_zones : 3; 
-                        const isLD6004Stay = (state.radar_zone_type === 'hw_stay_zones' && caps.model === 'LD6004');
-                        if (!isLD6004Stay && list.length >= maxHwZones) {
-                            alert(this.t("hw_limit", maxHwZones));
-                            return; 
-                        }
-                    }
                     if(callbacks.resetSelection) callbacks.resetSelection(); 
                     this.isAddingNew = true;
                     state.isAddingNew = true; 
                     const inName = this.root.getElementById('in-name');
                     if (inName) {
                         const nextIdx = list.length + 1; 
-                        if (state.editMode === 'layout' && state.radar_zone_type === 'hw_block_zones') { inName.value = `HW Block ${nextIdx}`; } 
-                        else if (state.editMode === 'layout' && state.radar_zone_type === 'hw_detect_zones') { inName.value = `HW Detect ${nextIdx}`; } 
-                        else if (state.editMode === 'layout' && state.radar_zone_type === 'hw_stay_zones') { 
-                            inName.value = (nextIdx > 4) ? `Stay ${nextIdx}` : `HW Stay ${nextIdx}`; 
-                        } 
-                        else if (state.editMode === 'layout') { inName.value = `Monitor ${nextIdx}`; } 
+                        if (state.editMode === 'layout') { inName.value = `Monitor ${nextIdx}`; }
                         else { inName.value = `Zone ${nextIdx}`; }
                     }
                     const rootEl = this.root.getElementById('root');
@@ -1248,7 +655,6 @@ export class RadarEditor {
             let exportData = null;
             if (this.host && this.host.fullRawData) {
                 exportData = JSON.parse(JSON.stringify(this.host.fullRawData));
-                delete exportData.discovered_radars;
                 delete exportData._force_reset_history;
                 if (exportData.maps) {
                     Object.values(exportData.maps).forEach(m => {
@@ -1294,8 +700,7 @@ export class RadarEditor {
                         const json = JSON.parse(ev.target.result);
                         if (confirm(this.t("confirm_restore"))) {
                             state.hass.callService('radar_map_manager', 'import_config', {
-                                config_json: JSON.stringify(json),
-                                map_group: state.mapGroup || "default"
+                                config_json: JSON.stringify(json)
                             }).then(() => {
                                 alert(this.t("restore_ok"));
                                 setTimeout(() => location.reload(), 800);
@@ -1446,18 +851,11 @@ export class RadarEditor {
                     if (rem < thr) angleDeg -= rem; else if (rem > (snap - thr)) angleDeg += (snap - rem);
                     const newRot = Math.round(angleDeg);
                     if(callbacks.onLayoutParamChange) callbacks.onLayoutParamChange('rotation', newRot);
-                    if (state.dragState.followCache) {
-                        this._applyFollowZones(state, { ...cfg, rotation: newRot }, state.dragState.followCache);
-                    }
                 }
                 else if (state.dragState.type === 'radar_move') {
                     if(callbacks.onLayoutParamChange) {
                         callbacks.onLayoutParamChange('origin_x', mx);
                         callbacks.onLayoutParamChange('origin_y', my);
-                    }
-                    if (state.dragState.followCache) {
-                        const cfg = this.renderer.getRadarConfig(state, state.radar, state.hass);
-                        this._applyFollowZones(state, { ...cfg, origin_x: mx, origin_y: my }, state.dragState.followCache);
                     }
                     const elX = this.root.getElementById('layout-x');
                     const elY = this.root.getElementById('layout-y');
@@ -1616,14 +1014,10 @@ export class RadarEditor {
                                         if (state.isCalibratingMap === 'Y') diff = Math.abs(finalY - p1[1]);
                                         if (diff > 0) {
                                             let ratio = diff / len;
-                                            let fullData = JSON.parse(JSON.stringify(this.host.fullRawData || {}));
-                                            let mg = state.mapGroup || "default";
-                                            if (!fullData.maps) fullData.maps = {};
-                                            if (!fullData.maps[mg]) fullData.maps[mg] = {};
-                                            if (!fullData.maps[mg].config) fullData.maps[mg].config = {};
-                                            if (state.isCalibratingMap === 'X') fullData.maps[mg].config.map_scale_x = ratio;
-                                            if (state.isCalibratingMap === 'Y') fullData.maps[mg].config.map_scale_y = ratio;
-                                            state.hass.callService('radar_map_manager', 'import_config', { config_json: JSON.stringify(fullData) });
+                                            const payload = { map_group: state.mapGroup || "default" };
+                                            if (state.isCalibratingMap === 'X') payload.map_scale_x = ratio;
+                                            if (state.isCalibratingMap === 'Y') payload.map_scale_y = ratio;
+                                            state.hass.callService('radar_map_manager', 'update_map_config', payload);
                                         }
                                     }
                                 }
@@ -1667,8 +1061,7 @@ export class RadarEditor {
                     const handlePos = this.renderer.calculateStandardCoord({...cfg, mirror_x: false, enable_correction: false}, 0, 4000);
                     const distRot = Math.sqrt(Math.pow(mx - handlePos.left, 2) + Math.pow(my - handlePos.top, 2));
                     if (distRot < 3) { 
-                        const followCache = this._captureFollowZonesLocalCoords(state);
-                        state.dragState = { isDragging: true, hasMoved: false, type: 'radar_rotate', radar: state.radar, startAngle: cfg.rotation, followCache };
+                        state.dragState = { isDragging: true, hasMoved: false, type: 'radar_rotate', radar: state.radar, startAngle: cfg.rotation };
                         clickLayer.setPointerCapture(e.pointerId);
                         return;
                     }
@@ -1691,8 +1084,7 @@ export class RadarEditor {
                         });
                         return; 
                     }
-                    const followCache = this._captureFollowZonesLocalCoords(state);
-                    state.dragState = { isDragging: true, hasMoved: false, type: 'radar_move', startX: mx, startY: my, followCache };
+                    state.dragState = { isDragging: true, hasMoved: false, type: 'radar_move', startX: mx, startY: my };
                     clickLayer.setPointerCapture(e.pointerId);
                 }
                 return; 
@@ -1898,60 +1290,6 @@ export class RadarEditor {
         };
         clickLayer.onpointercancel = clickLayer.onpointerup;
     }
-    _captureFollowZonesLocalCoords(state) {
-        if (!state.followZonesEnabled || !state.radar || !state.data[state.radar]) return null;
-        const cfg = this.renderer.getRadarConfig(state, state.radar, state.hass);
-        const rData = state.data[state.radar];
-        if (!state.origFollowZonesSnapshot) {
-            state.origFollowZonesSnapshot = {
-                hw_detect_zones: JSON.parse(JSON.stringify(rData.hw_detect_zones || [])),
-                hw_block_zones: JSON.parse(JSON.stringify(rData.hw_block_zones || [])),
-                hw_stay_zones: JSON.parse(JSON.stringify(rData.hw_stay_zones || []))
-            };
-        }
-        const items = [];
-        const types = ['hw_detect_zones', 'hw_block_zones', 'hw_stay_zones'];
-        types.forEach(type => {
-            if (state.followZoneTypes && state.followZoneTypes[type] && Array.isArray(rData[type])) {
-                rData[type].forEach((z, zIdx) => {
-                    const pts = Array.isArray(z) ? z : z.points;
-                    if (Array.isArray(pts)) {
-                        pts.forEach((p, pIdx) => {
-                            const local = this.renderer.math.canvasToRadarLocal(cfg, p[0], p[1]);
-                            items.push({ type, zIdx, pIdx, xm: local.xm, ym: local.ym });
-                        });
-                    }
-                });
-            }
-        });
-        return { cfg, items };
-    }
-    _applyFollowZones(state, currentLayout, followCache) {
-        if (!followCache || !followCache.items || followCache.items.length === 0) return;
-        const rData = state.data[state.radar];
-        if (!rData) return;
-        followCache.items.forEach(item => {
-            if (rData[item.type] && rData[item.type][item.zIdx]) {
-                const z = rData[item.type][item.zIdx];
-                const pts = Array.isArray(z) ? z : z.points;
-                if (pts && pts[item.pIdx]) {
-                    const newPt = this.renderer.math.radarLocalToCanvas(currentLayout, item.xm, item.ym);
-                    pts[item.pIdx][0] = newPt[0];
-                    pts[item.pIdx][1] = newPt[1];
-                }
-            }
-        });
-        state.hasHwZoneChanges = true;
-        state.hasUnsavedChanges = true;
-    }
-    _transformFollowZonesByParam(state, paramKey, newVal) {
-        if (!['origin_x', 'origin_y', 'rotation', 'scale_x', 'scale_y'].includes(paramKey)) return;
-        const followCache = this._captureFollowZonesLocalCoords(state);
-        if (!followCache) return;
-        const oldCfg = this.renderer.getRadarConfig(state, state.radar, state.hass);
-        const newCfg = { ...oldCfg, [paramKey]: newVal };
-        this._applyFollowZones(state, newCfg, followCache);
-    }
 }
 function getActiveList(state) {
     if (state.editMode === 'layout') {
@@ -1978,9 +1316,6 @@ function bindStepper(editor, btnId, inputId, step, callbacks, paramKey) {
             val = parseFloat((val + step).toFixed(1));
             if (val < 1) val = 1; if (val > 20) val = 20;
             input.value = val;
-            if (editor._transformFollowZonesByParam && editor.host?.state?.followZonesEnabled) {
-                editor._transformFollowZonesByParam(editor.host.state, paramKey, val);
-            }
             if(callbacks.onLayoutParamChange) callbacks.onLayoutParamChange(paramKey, val);
         };
     }
@@ -1989,9 +1324,6 @@ function bindLayoutInput(editor, id, key, callbacks, isCheck = false) {
     const el = editor.root.getElementById(id);
     if (el) el.onchange = (e) => { 
         const val = isCheck ? e.target.checked : parseFloat(e.target.value);
-        if (editor._transformFollowZonesByParam && editor.host?.state?.followZonesEnabled) {
-            editor._transformFollowZonesByParam(editor.host.state, key, val);
-        }
         if(callbacks.onLayoutParamChange) callbacks.onLayoutParamChange(key, val); 
     };
 }
