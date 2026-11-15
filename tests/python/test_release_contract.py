@@ -112,6 +112,8 @@ class ReleaseContractTests(unittest.TestCase):
             setup,
             r"StaticPathConfig\(\s*['\"]/radar_map_manager['\"]",
         )
+        self.assertIn('"manifest.json"', setup)
+        self.assertNotIn("getmtime", setup)
         self.assertIn('customElements.define(\'radar-map-card\'', card)
         self.assertIn("cd custom_components/radar_map_manager", release)
         self.assertIn("zip -r ../../radar_map_manager.zip .", release)

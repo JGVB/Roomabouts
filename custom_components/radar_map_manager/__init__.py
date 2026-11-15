@@ -10,9 +10,9 @@ from __future__ import annotations
 import copy
 from datetime import timedelta
 from functools import wraps
+import json
 import logging
 import os
-import time
 from typing import Any, Awaitable, Callable
 
 import voluptuous as vol
@@ -260,9 +260,14 @@ async def async_register_frontend_resources(hass: HomeAssistant) -> None:
     except Exception as err:  # Registration may already exist after a reload.
         _LOGGER.debug("Roomabouts static-path registration was skipped: %s", err)
 
-    def _get_js_version() -> float:
-        js_path = os.path.join(www_dir, "radar-map-card.js")
-        return os.path.getmtime(js_path) if os.path.exists(js_path) else time.time()
+    def _get_js_version() -> str:
+        manifest_path = os.path.join(os.path.dirname(__file__), "manifest.json")
+        with open(manifest_path, encoding="utf-8") as manifest_file:
+            manifest = json.load(manifest_file)
+        version = manifest.get("version")
+        if not isinstance(version, str) or not version:
+            raise ValueError("manifest version is missing")
+        return version
 
     try:
         js_version = await hass.async_add_executor_job(_get_js_version)
