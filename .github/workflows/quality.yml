@@ -42,7 +42,14 @@ jobs:
         run: python -m unittest discover -s tests/python -p 'test_*.py'
 
       - name: Check JavaScript modules
-        run: deno check --no-config custom_components/radar_map_manager/www/*.js tests/js/*.js
+        run: |
+          deno check --no-config \
+            custom_components/radar_map_manager/www/*.js \
+            tests/js/*.js \
+            tests/browser/fake-hass.js \
+            tests/browser/fixture-controller.js \
+            tests/browser/fixtures/synthetic-scenarios.js \
+            tests/browser/fake-hass.test.js
 
       - name: Run JavaScript tests
-        run: deno test --no-config tests/js
+        run: deno test --no-config tests/js tests/browser/fake-hass.test.js

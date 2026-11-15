@@ -51,8 +51,14 @@ The dependency-free local quality gate uses Python 3.14.3 and Deno 2.6.9:
 ```sh
 python3 -m compileall -q custom_components/radar_map_manager tests/python
 python3 -m unittest discover -s tests/python -p 'test_*.py'
-deno check --no-config custom_components/radar_map_manager/www/*.js tests/js/*.js
-deno test --no-config tests/js
+deno check --no-config \
+  custom_components/radar_map_manager/www/*.js \
+  tests/js/*.js \
+  tests/browser/fake-hass.js \
+  tests/browser/fixture-controller.js \
+  tests/browser/fixtures/synthetic-scenarios.js \
+  tests/browser/fake-hass.test.js
+deno test --no-config tests/js tests/browser/fake-hass.test.js
 ```
 
 Home Assistant-dependent behavior is verified later in a named, backed-up test-instance protocol. Browser automation and its package toolchain are deliberately deferred to a separate approved decision.

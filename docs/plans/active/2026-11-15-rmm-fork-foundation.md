@@ -1,6 +1,6 @@
 # Roomabouts RMM Fork Foundation and Personal One-Room Proof
 
-- Status: Implementing — Phase 2
+- Status: Phase 2 complete — Phase 3 decision pending
 - Plan date: 2026-11-15
 - Coordinator: Roomabouts coordinator
 - Implementation branch/worktree: `codex/fork-foundation` at `/Users/jvanbev/Documents/Codebase/Roomabouts`
@@ -365,20 +365,28 @@ Expected files:
 
 Tasks:
 
-- [ ] Validate `RoomaboutsSnapshotV1` and derive `RoomaboutsTrack` at the browser boundary.
-- [ ] Reject invalid, duplicate, and out-of-order snapshots without reviving visual state.
-- [ ] Generate generation-only anonymous aliases independently of radar slots.
-- [ ] Consume backend-emitted confirmed, coasting/held, fading/last-seen, offline, ambiguous, position-basis, and last-observed facts rather than inferring them in the browser.
-- [ ] Create deterministic play/pause/step/speed synthetic replay with an injected clock.
-- [ ] Feed replay through `RoomaboutsObservationV1` and the same fusion/presentation pipeline as live input; do not inject post-fusion targets as the primary semantic replay.
-- [ ] Build a fake Home Assistant connection that exercises the real custom card and its cleanup lifecycle.
-- [ ] Add fixtures for exit/re-entry, hibernation, inherited-ID reuse, reconnect, map change, explicit reset, and generation change; prove no alias or trail crosses the boundary.
-- [ ] Prove source-slot relabeling cannot create a named identity claim.
-- [ ] Keep identity/evidence fields absent but structurally optional for a later resolver.
-- [ ] Assign a distinct Roomabouts prototype manifest version before loading the real card so upstream `1.3.12` browser cache entries cannot be reused.
-- [ ] Run the named manual browser-fixture protocol at fixed viewports and record console output; no automated browser claim is made before Phase 3 toolchain approval.
+- [x] Validate `RoomaboutsSnapshotV1` and derive `RoomaboutsTrack` at the browser boundary.
+- [x] Reject invalid, duplicate, and out-of-order snapshots without reviving visual state.
+- [x] Preserve and enforce backend-generated, generation-scoped anonymous aliases independently of radar slots.
+- [x] Consume backend-emitted confirmed, coasting/held, fading/last-seen, offline, ambiguous, position-basis, and last-observed facts rather than inferring them in the browser.
+- [x] Create deterministic play/pause/step/speed synthetic browser replay with an injected clock.
+- [x] Keep the primary semantic replay in Phase 1 at the `RoomaboutsObservationV1`-through-fusion boundary; use the browser fixture only as a secondary, synthetic post-fusion presentation seam.
+- [x] Build a fake Home Assistant connection that exercises the real custom card and its cleanup lifecycle.
+- [x] Add adapter and browser cases for exit/re-entry, hibernation, inherited-ID reuse, reconnect, map change, explicit reset, and generation change; prove no alias or trail crosses the boundary.
+- [x] Prove source-slot relabeling cannot create a named identity claim.
+- [x] Keep identity/evidence fields absent in the first proof and require a later reviewed contract revision before adding a resolver.
+- [x] Assign a distinct Roomabouts prototype manifest version before loading the real card so upstream `1.3.12` browser cache entries cannot be reused.
+- [x] Run the named manual browser-fixture protocol at fixed viewports and record the evidence; no pinned Playwright or automated screenshot claim is made before Phase 3 toolchain approval.
 
-Exit gate: Deno tests prove semantic adaptation for zero/one/many snapshots and generation cleanup; the named manual browser fixture shows the real card loads and tears down without a console error; replay hashes match; no live HA or sensor is needed. Screenshot and interaction automation remain deferred.
+Exit gate: Deno tests prove semantic adaptation for zero/one/many snapshots and generation cleanup; Phase 1 observation replay hashes remain passing; and the named manual browser fixture shows the real card loads and tears down without a page-origin console error. No live HA or sensor was used. Pinned screenshot and interaction automation remain deferred.
+
+#### Phase 2 implementation evidence
+
+- The reviewed Phase 2 stack runs from `7c55165` through `53d95f3` on `codex/fork-foundation`. It adds the strict browser adapter, real-card integration, bounded measurement-only trails, deterministic fake-HA fixture, lifecycle cleanup, and the fixture-owned responsive map stage.
+- The final dependency-free gate passes 119 Python tests and 32 Deno tests, all Deno checks, `git diff --check`, and `git fsck --strict`. Independent adapter, fixture, security, quality, integrated, and final sizing reviews returned `APPROVE` after requested corrections were integrated.
+- The complete semantic/lifecycle browser checklist passed at `13a4072`: `0.25x`/`4x` scheduling preserved snapshot order and logical time; generation reset assigned a new alias to a reused opaque ID; backward seek replaced the connection; disconnect/reconnect and ten remount/scenario cycles never exceeded one subscriber; diagnostics remained bounded; and final-empty cleanup left no dots or trails.
+- Commit `53d95f3` corrected the fixture's percentage-height containing block. A post-fix Chrome 157.0.8103.78 run on macOS 26.5 (25F71) visibly rendered targets without horizontal overflow at `390x844`, `1024x768`, `1440x900`, and `1920x1080`. Final-empty and disconnect cleanup left zero dots/trails, remount returned to one subscriber with `teardown-ok`, three anonymous tracks rendered, and page-origin warning/error count was zero. Unrelated extension-origin messages were excluded.
+- The card is intentionally read-only in Phase 2. The adapter does not retain a full Home Assistant object or bind inherited editor mutation handlers; a config-only resolver and real add/edit/calibration compatibility belong to the Phase 4 Home Assistant work. This phase does not claim the Phase 3 Roomabouts theme, live Home Assistant behavior, Recorder/storage behavior, or sensor hardware.
 
 ### Phase 3 — Original Roomabouts map view
 
@@ -458,8 +466,14 @@ env PYTHONPYCACHEPREFIX=/tmp/roomabouts-pycache \
   python3 -m compileall -q custom_components/radar_map_manager
 
 python3 -m unittest discover -s tests/python -p 'test_*.py'
-deno check custom_components/radar_map_manager/www/*.js
-deno test tests/js
+deno check --no-config \
+  custom_components/radar_map_manager/www/*.js \
+  tests/js/*.js \
+  tests/browser/fake-hass.js \
+  tests/browser/fixture-controller.js \
+  tests/browser/fixtures/synthetic-scenarios.js \
+  tests/browser/fake-hass.test.js
+deno test --no-config tests/js tests/browser/fake-hass.test.js
 git diff --check
 git fsck --strict
 ```

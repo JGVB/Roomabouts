@@ -1,6 +1,6 @@
 # Roomabouts offline browser fixture protocol
 
-Status: ready for manual execution
+Status: executed for the Phase 2 exit gate
 
 This protocol exercises the real `radar-map-card` custom element with a dependency-free fake Home Assistant connection and synthetic `RoomaboutsSnapshotV1` messages. It does not connect to Home Assistant, a sensor, a cloud service, or an external network destination.
 
@@ -124,17 +124,17 @@ Copy this table into the implementation evidence or attach an equivalent text ar
 
 | Field | Observed value |
 | --- | --- |
-| Git revision | _not run_ |
-| Browser/version | _not run_ |
-| Operating system | _not run_ |
-| `390 × 844` | _not run_ |
-| `1024 × 768` | _not run_ |
-| `1440 × 900` | _not run_ |
-| `1920 × 1080` | _not run_ |
-| Console errors | _not run_ |
-| Maximum subscriber count | _not run_ |
-| Disconnect/remount cleanup | _not run_ |
-| Notes/evidence path | _not run_ |
+| Git revision | `53d95f3` (final sizing rerun); full semantic/lifecycle checklist previously passed at `13a4072` |
+| Browser/version | Google Chrome `157.0.8103.78`, zoom 100% |
+| Operating system | macOS `26.5` (`25F71`) |
+| `390 × 844` | Pass — 420 px map stage, visible synthetic target, controls/cards inside viewport, no horizontal overflow |
+| `1024 × 768` | Pass — 480 px map stage, visible synthetic target, controls/cards inside viewport, no horizontal overflow |
+| `1440 × 900` | Pass — 480 px map stage, visible synthetic target, controls/cards inside viewport, no horizontal overflow |
+| `1920 × 1080` | Pass — 480 px bounded map stage, visible synthetic target, controls/cards inside viewport, no horizontal overflow |
+| Console errors | Pass — zero page-origin warnings/errors; unrelated browser-extension messages excluded |
+| Maximum subscriber count | `1` |
+| Disconnect/remount cleanup | Pass — disconnect reached zero subscribers and zero dots/trails; remount returned to one subscriber with `teardown-ok` |
+| Notes/evidence path | This table records the 2026-11-15 run. At `13a4072`, `0.25×`/`4×` replay, generation alias reset/opaque-ID reuse, backward seek, and ten remount/scenario cycles passed. At sizing-only `53d95f3`, visible rendering, final-empty cleanup, disconnect/reconnect, three tracks, remount, and all fixed viewports were rerun. |
 
 ## Teardown
 
@@ -147,7 +147,6 @@ The fixture itself writes no replay, snapshot, diagnostic, or credential data to
 
 ## Current limitations
 
-- No manual browser execution is claimed by this document. The evidence table is intentionally unfilled.
 - Browser automation and screenshot assertions remain deferred until decision 0003 approves a complete pinned browser toolchain.
 - This fixture does not verify Home Assistant administrator authorization, real WebSocket framing, Store/Recorder behavior, source entities, or sensor hardware.
 - The original Roomabouts cartographic theme and footprint renderer belong to Phase 3.
