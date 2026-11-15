@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%236b4f2a'/%3E%3C/svg%3E">
+    <title>Roomabouts synthetic browser fixture</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            --primary-text-color: #f5efe3;
+            --secondary-text-color: #cdbf9f;
+            --card-background-color: #17130f;
+            --divider-color: #584b3b;
+            --primary-color: #a77b41;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-width: 320px;
+            min-height: 100vh;
+            background: #0c0b09;
+            color: var(--primary-text-color);
+        }
+
+        main {
+            width: min(1120px, 100%);
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        h1 { margin: 0 0 4px; font-size: 1.35rem; }
+        p { margin: 4px 0 12px; color: var(--secondary-text-color); }
+
+        .notice {
+            border: 1px solid #7d623e;
+            border-radius: 8px;
+            padding: 10px 12px;
+            background: #211a12;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            align-items: end;
+            margin: 14px 0;
+            padding: 12px;
+            border: 1px solid var(--divider-color);
+            border-radius: 8px;
+            background: #15120e;
+        }
+
+        label { display: grid; gap: 5px; font-size: 0.8rem; color: var(--secondary-text-color); }
+
+        button, select, input {
+            min-height: 36px;
+            border: 1px solid #765d3e;
+            border-radius: 6px;
+            padding: 6px 9px;
+            background: #2b2117;
+            color: var(--primary-text-color);
+        }
+
+        button { cursor: pointer; }
+        button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid #d7a75f; outline-offset: 2px; }
+
+        .button-row { display: flex; flex-wrap: wrap; gap: 8px; grid-column: 1 / -1; }
+
+        #status {
+            min-height: 2.6em;
+            margin: 8px 0;
+            font: 0.78rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+            overflow-wrap: anywhere;
+        }
+
+        #card-host {
+            min-height: 480px;
+            border: 1px solid var(--divider-color);
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--card-background-color);
+        }
+
+        radar-map-card { display: block; min-height: 480px; }
+
+        details { margin-top: 14px; }
+
+        #diagnostics {
+            max-height: 240px;
+            overflow: auto;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            padding: 10px;
+            border: 1px solid var(--divider-color);
+            border-radius: 6px;
+            background: #090806;
+            font: 0.75rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+
+        @media (max-width: 540px) {
+            main { padding: 10px; }
+            #card-host, radar-map-card { min-height: 420px; }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Roomabouts synthetic browser fixture</h1>
+        <p class="notice"><strong>Synthetic data only.</strong> This page makes no Home Assistant, sensor, cloud, or external-network connection. Service mutations are rejected.</p>
+
+        <section class="controls" aria-label="Synthetic replay controls">
+            <label>
+                Scenario
+                <select id="scenario" aria-describedby="scenario-description"></select>
+            </label>
+            <label>
+                Frame
+                <input id="frame" type="range" min="0" max="0" value="0" step="1">
+            </label>
+            <label>
+                Speed
+                <select id="speed">
+                    <option value="0.25">0.25×</option>
+                    <option value="0.5">0.5×</option>
+                    <option value="1" selected>1×</option>
+                    <option value="2">2×</option>
+                    <option value="4">4×</option>
+                </select>
+            </label>
+            <div class="button-row">
+                <button id="play" type="button" aria-pressed="false">Play</button>
+                <button id="next" type="button">Step forward</button>
+                <button id="disconnect" type="button">Disconnect</button>
+                <button id="reconnect" type="button">Reconnect</button>
+                <button id="remount" type="button">Remount card</button>
+            </div>
+        </section>
+
+        <p id="scenario-description"></p>
+        <output id="status" aria-live="polite"></output>
+        <section id="card-host" aria-label="Roomabouts card under test"></section>
+
+        <details>
+            <summary>Bounded fixture diagnostics</summary>
+            <pre id="diagnostics" aria-live="polite"></pre>
+        </details>
+    </main>
+    <script type="module" src="./fixture-controller.js"></script>
+</body>
+</html>
