@@ -7,6 +7,8 @@ silently copied into Home Assistant storage.
 
 from __future__ import annotations
 
+import copy
+from dataclasses import dataclass
 import json
 import math
 import re
@@ -144,6 +146,15 @@ _MAP_CONFIG_KEYS: Final = frozenset(
 
 class ConfigurationImportError(ValueError):
     """Raised when an imported configuration is outside the safe contract."""
+
+
+@dataclass(frozen=True, slots=True)
+class ConfigurationImportPlan:
+    """Validated full-replacement or legacy single-map merge operation."""
+
+    replace: bool
+    configuration: dict[str, Any]
+    map_group: str | None = None
 
 
 def _compact_key(key: str) -> str:
@@ -526,6 +537,55 @@ def _validate_radar(value: Any, path: str) -> dict[str, Any]:
     return result
 
 
+def _validate_legacy_radar(
+    value: Any, path: str, map_group: str
+) -> dict[str, Any]:
+    radar = _expect_dict(value, path)
+    if "map_group" in radar:
+        _identifier(radar["map_group"], f"{path}.map_group")
+    normalized = dict(radar)
+    normalized["map_group"] = map_group
+    return _validate_radar(normalized, path)
+
+
+def _validate_legacy_configuration(
+    value: Any, map_group: str
+) -> dict[str, Any]:
+    root = _expect_dict(value, "$")
+    if not root:
+        raise ConfigurationImportError("legacy configuration is empty")
+
+    full_format_keys = {"version", "maps", "radars"}
+    if set(root) & full_format_keys:
+        raise ConfigurationImportError("configuration mixes full and legacy formats")
+
+    radar_items = [
+        (name, radar)
+        for name, radar in root.items()
+        if name not in {"global_zones", "global_config"}
+    ]
+    if len(radar_items) > MAX_RADARS:
+        raise ConfigurationImportError(f"configuration exceeds {MAX_RADARS} radars")
+
+    result: dict[str, Any] = {"radars": {}}
+    if "global_zones" in root:
+        result["zones"] = _validate_zone_group(
+            root["global_zones"], _MAP_ZONE_KEYS, "$.global_zones"
+        )
+    if "global_config" in root:
+        result["config"] = _validate_map_config(
+            root["global_config"], "$.global_config"
+        )
+
+    for index, (radar_name, radar_value) in enumerate(radar_items):
+        radar_path = f"$.radar[{index}]"
+        safe_name = _identifier(radar_name, radar_path)
+        result["radars"][safe_name] = _validate_legacy_radar(
+            radar_value, radar_path, map_group
+        )
+    return result
+
+
 def validate_configuration(value: Any) -> dict[str, Any]:
     """Validate and return a detached, normalized configuration object."""
 
@@ -563,9 +623,7 @@ def validate_configuration(value: Any) -> dict[str, Any]:
     return {"version": version, "maps": maps, "radars": radars}
 
 
-def parse_configuration_import(config_json: str) -> dict[str, Any]:
-    """Parse one bounded JSON document and return validated configuration."""
-
+def _parse_bounded_json(config_json: str) -> Any:
     if not isinstance(config_json, str):
         raise ConfigurationImportError("config_json must be text")
     encoded_size = len(config_json.encode("utf-8"))
@@ -585,4 +643,71 @@ def parse_configuration_import(config_json: str) -> dict[str, Any]:
         raise
     except (TypeError, ValueError, json.JSONDecodeError, RecursionError) as err:
         raise ConfigurationImportError("config_json is not valid JSON") from err
-    return validate_configuration(value)
+    return value
+
+
+def parse_configuration_import(config_json: str) -> dict[str, Any]:
+    """Parse one bounded full-store JSON document."""
+
+    return validate_configuration(_parse_bounded_json(config_json))
+
+
+def plan_configuration_import(
+    config_json: str,
+    *,
+    map_group: str = "default",
+) -> ConfigurationImportPlan:
+    """Plan a bounded full replacement or legacy single-map merge."""
+
+    value = _parse_bounded_json(config_json)
+    _validate_tree_bounds(value)
+    root = _expect_dict(value, "$")
+    safe_map_group = _identifier(map_group, "$.map_group")
+    if set(root) == {"version", "maps", "radars"}:
+        return ConfigurationImportPlan(True, validate_configuration(root))
+
+    return ConfigurationImportPlan(
+        False,
+        _validate_legacy_configuration(root, safe_map_group),
+        safe_map_group,
+    )
+
+
+def apply_configuration_import(
+    existing: Any, plan: ConfigurationImportPlan
+) -> dict[str, Any]:
+    """Apply a validated import plan without mutating existing configuration."""
+
+    if plan.replace:
+        return copy.deepcopy(plan.configuration)
+    if plan.map_group is None:
+        raise ConfigurationImportError("legacy import is missing its target map")
+    if not isinstance(existing, dict):
+        raise ConfigurationImportError("existing configuration must be an object")
+
+    result = copy.deepcopy(existing)
+    maps = result.get("maps")
+    if not isinstance(maps, dict):
+        maps = {}
+        result["maps"] = maps
+    radars = result.get("radars")
+    if not isinstance(radars, dict):
+        radars = {}
+        result["radars"] = radars
+
+    target_map = maps.get(plan.map_group)
+    if not isinstance(target_map, dict):
+        target_map = {}
+        maps[plan.map_group] = target_map
+    if "zones" in plan.configuration:
+        target_map["zones"] = copy.deepcopy(plan.configuration["zones"])
+    if "config" in plan.configuration:
+        current_config = target_map.get("config")
+        if not isinstance(current_config, dict):
+            current_config = {}
+            target_map["config"] = current_config
+        current_config.update(copy.deepcopy(plan.configuration["config"]))
+
+    for radar_name, radar in plan.configuration["radars"].items():
+        radars[radar_name] = copy.deepcopy(radar)
+    return result

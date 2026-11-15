@@ -45,7 +45,8 @@ from .configuration import (
     CONFIG_IDENTIFIER_PATTERN,
     ConfigurationImportError,
     MAX_ZONES_PER_KIND,
-    parse_configuration_import,
+    apply_configuration_import,
+    plan_configuration_import,
     validate_layout_configuration,
     validate_map_configuration_settings,
     validate_zone_configuration,
@@ -216,7 +217,10 @@ UPDATE_MAP_CONFIG_SCHEMA = vol.Schema(
     extra=vol.PREVENT_EXTRA,
 )
 IMPORT_CONFIG_SCHEMA = vol.Schema(
-    {vol.Required("config_json"): cv.string},
+    {
+        vol.Required("config_json"): cv.string,
+        vol.Optional("map_group", default="default"): _SHORT_TEXT,
+    },
     extra=vol.PREVENT_EXTRA,
 )
 
@@ -376,17 +380,24 @@ def _minimum_update_interval(coordinator: RadarCoordinator) -> float:
 
 
 def _merge_import_defaults(
-    coordinator: RadarCoordinator, imported: dict[str, Any]
+    coordinator: RadarCoordinator,
+    imported: dict[str, Any],
+    *,
+    map_group: str | None = None,
 ) -> dict[str, Any]:
-    """Apply coordinate-free coordinator defaults to a validated import."""
+    """Apply coordinate-free defaults without changing unrelated legacy maps."""
 
     result = copy.deepcopy(imported)
     empty = coordinator._get_empty_data()
-    result["version"] = empty.get("version", result["version"])
+    result["version"] = empty.get("version", result.get("version", 2))
     default_map = empty.get("maps", {}).get("default", {})
     default_zones = default_map.get("zones", {})
     default_config = default_map.get("config", {})
-    for map_data in result["maps"].values():
+    maps_to_fill = result["maps"].values()
+    if map_group is not None:
+        target_map = result["maps"].get(map_group)
+        maps_to_fill = () if target_map is None else (target_map,)
+    for map_data in maps_to_fill:
         map_data["zones"] = {
             **copy.deepcopy(default_zones),
             **map_data.get("zones", {}),
@@ -544,8 +555,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def handle_import_config(call: ServiceCall) -> None:
         try:
-            imported = parse_configuration_import(call.data["config_json"])
-            replacement = _merge_import_defaults(coordinator, imported)
+            plan = plan_configuration_import(
+                call.data["config_json"],
+                map_group=call.data.get("map_group", "default"),
+            )
+            imported = apply_configuration_import(coordinator.data, plan)
+            replacement = _merge_import_defaults(
+                coordinator,
+                imported,
+                map_group=plan.map_group,
+            )
         except ConfigurationImportError as err:
             raise ServiceValidationError(str(err)) from err
 
@@ -584,10 +603,43 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         start_processing_loop(_minimum_update_interval(coordinator))
         await processor.update(force=True)
 
+    startup_task = None
+    startup_unsubscribe = None
+
+    @callback
+    def cancel_startup() -> None:
+        """Prevent delayed startup work from surviving a successful unload."""
+
+        nonlocal startup_task, startup_unsubscribe
+        if startup_unsubscribe is not None:
+            startup_unsubscribe()
+            startup_unsubscribe = None
+        if startup_task is not None and not startup_task.done():
+            startup_task.cancel()
+        startup_task = None
+
+    @callback
+    def schedule_initial_startup(event=None) -> None:
+        """Create startup work owned by this config entry."""
+
+        nonlocal startup_task, startup_unsubscribe
+        startup_unsubscribe = None
+        if startup_task is None or startup_task.done():
+            startup_task = entry.async_create_task(
+                hass,
+                initial_startup(event),
+                "Roomabouts initial startup",
+            )
+
+    entry.async_on_unload(cancel_startup)
+    domain_data["startup_cancel"] = cancel_startup
+
     if hass.is_running:
-        hass.async_create_task(initial_startup())
+        schedule_initial_startup()
     else:
-        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, initial_startup)
+        startup_unsubscribe = hass.bus.async_listen_once(
+            EVENT_HOMEASSISTANT_STARTED, schedule_initial_startup
+        )
     return True
 
 
@@ -600,17 +652,20 @@ async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload the config entry and remove all state-changing services."""
 
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if not unload_ok:
+        return False
+
     domain_data = hass.data.get(DOMAIN, {})
+    cancel_startup = domain_data.pop("startup_cancel", None)
+    if cancel_startup is not None:
+        cancel_startup()
     remove_timer = domain_data.pop("timer_remove", None)
     if remove_timer is not None:
         remove_timer()
     processor = domain_data.get("processor")
     if processor is not None:
         await processor.async_stop()
-
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if not unload_ok:
-        return False
 
     for service_name in _MUTATING_SERVICES:
         hass.services.async_remove(DOMAIN, service_name)

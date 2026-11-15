@@ -154,6 +154,13 @@ import_config:
       selector:
         text:
           multiline: true
+    map_group:
+      name: Target map
+      description: Target map for a bounded legacy single-floor import. Ignored by full-store imports.
+      required: false
+      default: default
+      selector:
+        text:
 
 reset_tracking_history:
   name: Reset tracking history

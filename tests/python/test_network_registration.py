@@ -191,6 +191,48 @@ class NetworkRegistrationTests(unittest.TestCase):
         self.assertIsInstance(handler, ast.Call)
         self.assertEqual(_attribute_name(handler.func), "_admin_service_handler")
 
+    def test_import_service_exposes_only_bounded_legacy_targeting(self) -> None:
+        import_schema = next(
+            node
+            for node in self.init_tree.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name)
+                and target.id == "IMPORT_CONFIG_SCHEMA"
+                for target in node.targets
+            )
+        )
+        schema_source = ast.unparse(import_schema)
+
+        self.assertIn("config_json", schema_source)
+        self.assertIn("map_group", schema_source)
+        self.assertNotIn("allow_empty", schema_source)
+        self.assertNotIn("target_radar", schema_source)
+
+        setup_entry = next(
+            node
+            for node in self.init_tree.body
+            if isinstance(node, ast.AsyncFunctionDef)
+            and node.name == "async_setup_entry"
+        )
+        import_handler = next(
+            node
+            for node in setup_entry.body
+            if isinstance(node, ast.AsyncFunctionDef)
+            and node.name == "handle_import_config"
+        )
+        defaults_call = next(
+            node
+            for node in ast.walk(import_handler)
+            if isinstance(node, ast.Call)
+            and _attribute_name(node.func) == "_merge_import_defaults"
+        )
+        keyword_values = {
+            keyword.arg: ast.unparse(keyword.value)
+            for keyword in defaults_call.keywords
+        }
+        self.assertEqual(keyword_values.get("map_group"), "plan.map_group")
+
     def test_admin_wrapper_authorizes_before_invoking_handler(self) -> None:
         wrapper = next(
             node
@@ -223,6 +265,79 @@ class NetworkRegistrationTests(unittest.TestCase):
             self.assertNotIn(forbidden, config_flow_source)
             self.assertNotIn(forbidden, constants_source)
         self.assertIn("options={}", self.init_source)
+
+    def test_delayed_startup_is_owned_and_cancelled_by_the_entry(self) -> None:
+        setup_entry = next(
+            node
+            for node in self.init_tree.body
+            if isinstance(node, ast.AsyncFunctionDef)
+            and node.name == "async_setup_entry"
+        )
+        schedule_startup = next(
+            node
+            for node in setup_entry.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "schedule_initial_startup"
+        )
+        cancel_startup = next(
+            node
+            for node in setup_entry.body
+            if isinstance(node, ast.FunctionDef) and node.name == "cancel_startup"
+        )
+        schedule_calls = {
+            _attribute_name(node.func)
+            for node in ast.walk(schedule_startup)
+            if isinstance(node, ast.Call)
+        }
+        cancel_calls = {
+            _attribute_name(node.func)
+            for node in ast.walk(cancel_startup)
+            if isinstance(node, ast.Call)
+        }
+        setup_source = ast.unparse(setup_entry)
+
+        self.assertIn("async_create_task", schedule_calls)
+        self.assertIn("cancel", cancel_calls)
+        self.assertIn("entry.async_on_unload(cancel_startup)", setup_source)
+        self.assertIn(
+            "hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, schedule_initial_startup)",
+            setup_source,
+        )
+
+    def test_unload_cleanup_occurs_only_after_platform_success(self) -> None:
+        unload = next(
+            node
+            for node in self.init_tree.body
+            if isinstance(node, ast.AsyncFunctionDef)
+            and node.name == "async_unload_entry"
+        )
+        statements = [
+            statement
+            for statement in unload.body
+            if not (
+                isinstance(statement, ast.Expr)
+                and isinstance(statement.value, ast.Constant)
+                and isinstance(statement.value.value, str)
+            )
+        ]
+        unload_assignment = statements[0]
+        failed_unload_guard = statements[1]
+        self.assertIsInstance(unload_assignment, ast.Assign)
+        self.assertIn("async_unload_platforms", ast.unparse(unload_assignment))
+        self.assertIsInstance(failed_unload_guard, ast.If)
+        self.assertEqual(ast.unparse(failed_unload_guard.test), "not unload_ok")
+        self.assertEqual(ast.unparse(failed_unload_guard.body[0]), "return False")
+
+        cleanup_source = "\n".join(ast.unparse(item) for item in statements[2:])
+        self.assertIn("cancel_startup()", cleanup_source)
+        self.assertIn("remove_timer()", cleanup_source)
+        self.assertIn("await processor.async_stop()", cleanup_source)
+        runtime_cleanup = "domain_data.pop('runtime_state', None)"
+        self.assertIn(runtime_cleanup, cleanup_source)
+        self.assertLess(
+            cleanup_source.index("await processor.async_stop()"),
+            cleanup_source.index(runtime_cleanup),
+        )
 
 
 if __name__ == "__main__":

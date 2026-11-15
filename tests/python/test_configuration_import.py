@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
 import math
@@ -99,6 +100,120 @@ class ConfigurationImportTests(unittest.TestCase):
         )
         result["maps"]["default"]["config"]["update_interval"] = 1.0
         self.assertEqual(original["maps"]["default"]["config"]["update_interval"], 0.2)
+
+    def test_full_import_plan_replaces_the_existing_store(self) -> None:
+        plan = configuration.plan_configuration_import(
+            json.dumps(_valid_configuration()), map_group="ignored_map"
+        )
+        existing = {
+            "version": 2,
+            "maps": {"unrelated": {"zones": {}, "config": {}}},
+            "radars": {"unrelated_radar": {"map_group": "unrelated"}},
+        }
+
+        result = configuration.apply_configuration_import(existing, plan)
+
+        self.assertTrue(plan.replace)
+        self.assertIsNone(plan.map_group)
+        self.assertNotIn("unrelated", result["maps"])
+        self.assertNotIn("unrelated_radar", result["radars"])
+
+        with self.assertRaises(configuration.ConfigurationImportError):
+            configuration.plan_configuration_import(
+                json.dumps(_valid_configuration()), map_group="../unsafe"
+            )
+
+    def test_legacy_single_floor_import_merges_only_its_target_map(self) -> None:
+        zone = {"name": "Imported", "points": [[0, 0], [10, 0], [0, 10]]}
+        legacy = {
+            "global_zones": {
+                "include_zones": [zone],
+                "exclude_zones": [],
+            },
+            "global_config": {"update_interval": 0.5},
+            "legacy_radar": {
+                "map_group": "old_map",
+                "paused": False,
+                "layout": {"origin_x": 20, "origin_y": 30},
+                "monitor_zones": [zone],
+            },
+        }
+        existing = {
+            "version": 2,
+            "maps": {
+                "default": {"zones": {}, "config": {"update_interval": 0.1}},
+                "floor_2": {
+                    "zones": {"include_zones": []},
+                    "config": {"show_labels": True, "update_interval": 0.1},
+                },
+            },
+            "radars": {
+                "existing_radar": {"map_group": "default", "paused": False}
+            },
+        }
+        untouched = copy.deepcopy(existing)
+
+        plan = configuration.plan_configuration_import(
+            json.dumps(legacy), map_group="floor_2"
+        )
+        result = configuration.apply_configuration_import(existing, plan)
+
+        self.assertFalse(plan.replace)
+        self.assertEqual(plan.map_group, "floor_2")
+        self.assertEqual(existing, untouched)
+        self.assertEqual(result["maps"]["default"], existing["maps"]["default"])
+        self.assertTrue(result["maps"]["floor_2"]["config"]["show_labels"])
+        self.assertEqual(result["maps"]["floor_2"]["config"]["update_interval"], 0.5)
+        self.assertEqual(
+            result["maps"]["floor_2"]["zones"]["include_zones"][0]["name"],
+            "Imported",
+        )
+        self.assertIn("existing_radar", result["radars"])
+        self.assertEqual(result["radars"]["legacy_radar"]["map_group"], "floor_2")
+
+    def test_legacy_import_rejects_secrets_network_and_runtime_fields(self) -> None:
+        for key, value in (
+            ("device_pin", "CANARY-PIN-NOT-A-REAL-CREDENTIAL"),
+            ("radar_ip", "192.0.2.10"),
+            ("targets", [{"x": 1, "y": 2}]),
+        ):
+            with self.subTest(key=key):
+                legacy = {"legacy_radar": {key: value}}
+                with self.assertRaises(configuration.ConfigurationImportError):
+                    configuration.plan_configuration_import(
+                        json.dumps(legacy), map_group="default"
+                    )
+
+    def test_legacy_import_rejects_invalid_target_or_mixed_format(self) -> None:
+        with self.assertRaises(configuration.ConfigurationImportError):
+            configuration.plan_configuration_import(
+                json.dumps({"global_config": {"update_interval": 0.5}}),
+                map_group="../unsafe",
+            )
+
+        with self.assertRaises(configuration.ConfigurationImportError):
+            configuration.plan_configuration_import(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "global_config": {"update_interval": 0.5},
+                    }
+                ),
+                map_group="default",
+            )
+
+    def test_legacy_import_applies_tree_bounds_before_normalization(self) -> None:
+        nested: object = 0
+        for _ in range(configuration.MAX_NESTING_DEPTH + 2):
+            nested = {"wrapper": nested}
+
+        with self.assertRaisesRegex(
+            configuration.ConfigurationImportError, "nesting exceeds"
+        ):
+            configuration.plan_configuration_import(
+                json.dumps({"legacy_radar": {"layout": nested}}),
+                map_group="default",
+            )
 
     def test_rejects_credentials_and_authentication_state(self) -> None:
         for key, value in (
