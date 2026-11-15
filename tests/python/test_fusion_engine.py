@@ -191,6 +191,35 @@ class FusionEngineTests(unittest.TestCase):
         self.assertAlmostEqual(mirrored["left"], -1.0, places=9)
         self.assertAlmostEqual(mirrored["top"], -2.0, places=9)
 
+    def test_python_transform_matches_shared_javascript_coordinate_fixture(self):
+        fixture = json.loads(
+            (ROOT / "tests/fixtures/coordinate-cases.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        engine, _, _ = self.make_engine()
+
+        for coordinate_case in fixture["cases"]:
+            with self.subTest(case=coordinate_case["name"]):
+                point = {**coordinate_case["point_mm"], "z": 0}
+                transformed = engine._calculate_standard_coord(
+                    coordinate_case["config"],
+                    point,
+                    radar_type=2,
+                )
+                expected = coordinate_case["expected_canvas"]
+                self.assertIsNotNone(transformed)
+                self.assertAlmostEqual(
+                    transformed["left"],
+                    expected["left"],
+                    delta=fixture["calculate_tolerance"],
+                )
+                self.assertAlmostEqual(
+                    transformed["top"],
+                    expected["top"],
+                    delta=fixture["calculate_tolerance"],
+                )
+
     def test_empty_fresh_state_is_deterministically_empty(self):
         engine, runtime, _ = self.make_engine()
 
