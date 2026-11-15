@@ -1,123 +1,124 @@
 add_radar:
-  name: Add Radar
-  description: Adds a new radar to the system, optionally assigning it to a specific map/floor.
+  name: Add radar
+  description: Add a Home Assistant entity-backed radar. Requires an administrator.
   fields:
     radar_name:
-      name: Radar Name
-      description: The unique name for the radar (e.g., living_room_radar).
+      name: Radar name
+      description: Base name used by the radar's Home Assistant entities.
       required: true
       selector:
         text:
     map_group:
-      name: Map Group
-      description: The map/floor ID this radar belongs to (e.g., floor_1, garden). Defaults to 'default'.
+      name: Map
+      description: Map or floor that contains the radar.
       required: false
       default: default
       selector:
         text:
 
 remove_radar:
-  name: Remove Radar
-  description: Removes a radar and its configuration from the system.
+  name: Remove radar
+  description: Remove a radar and its saved layout. Requires an administrator.
   fields:
     radar_name:
-      name: Radar Name
-      description: The name of the radar to remove.
+      name: Radar name
       required: true
       selector:
         text:
 
 set_radar_pause:
-  name: Set Radar Pause
-  description: Pauses or resumes data reception for a specific radar.
+  name: Set radar pause
+  description: Pause or resume one entity-backed radar. Requires an administrator.
   fields:
     radar_name:
-      name: Radar Name
-      description: The unique name of the radar.
+      name: Radar name
       required: true
       selector:
         text:
     paused:
       name: Paused
-      description: True to pause data reception, False to resume.
       required: true
       selector:
         boolean:
 
 update_radar_zone:
-  name: Update Zone
-  description: "Updates or adds a zone. If radar_name is omitted, it updates a global zone for the specified map."
+  name: Update zone
+  description: Update saved map or radar-local geometry. No hardware command is sent. Requires an administrator.
   fields:
     radar_name:
-      name: Radar Name
-      description: The radar this zone belongs to (for monitor zones). Leave empty for Global Zones.
+      name: Radar name
+      description: Required for radar-local zones; omit for map zones.
       required: false
       selector:
         text:
     zone_type:
-      name: Zone Type
-      description: Type of zone (monitor_zones, include_zones, exclude_zones).
+      name: Zone type
       required: true
       selector:
         select:
           options:
             - monitor_zones
+            - hw_detect_zones
+            - hw_block_zones
+            - hw_stay_zones
             - include_zones
             - exclude_zones
+            - entrance_zones
+            - stationary_zones
     points:
-      name: Points
-      description: List of [x, y] coordinates defining the polygon (0-100 scale).
+      name: Zones or polygon points
+      description: A polygon or a list of bounded zone objects.
       required: true
       selector:
         object:
     map_group:
-      name: Map Group
-      description: The map ID this zone belongs to. Essential for Global Zones.
+      name: Map
       required: false
       default: default
       selector:
         text:
 
 update_radar_layout:
-  name: Update Layout
-  description: Updates the physical layout parameters of a radar.
+  name: Update radar layout
+  description: Update allowlisted radar placement and geometry. Requires an administrator.
   fields:
     radar_name:
-      name: Radar Name
-      description: The radar to configure.
+      name: Radar name
       required: true
       selector:
         text:
     layout:
-      name: Layout Configuration
-      description: Dictionary containing x, y, scale, rotation, height, etc.
+      name: Layout
+      description: Placement values such as origin, scale, rotation, and mounting height.
       required: true
       selector:
         object:
     map_group:
-      name: Map Group
-      description: Move this radar to a different map group.
+      name: Map
       required: false
       selector:
         text:
     zones:
-      name: Zones
-      description: Optional dictionary containing updated hardware zones to apply atomically with layout.
+      name: Radar-local zones
       required: false
       selector:
         object:
 
 generate_radar_config:
-  name: Apply Configuration
-  description: Forces a re-calculation of all zones and configurations.
+  name: Recalculate map
+  description: Recalculate the current in-memory map from Home Assistant entity state. Requires an administrator.
 
-update_global_config:
-  name: Update Global Config
-  description: Updates system-wide settings like update interval or target height.
+update_map_config:
+  name: Update map settings
+  description: Update bounded map and tracking settings. Requires an administrator.
   fields:
+    map_group:
+      name: Map
+      required: true
+      selector:
+        text:
     update_interval:
-      name: Update Interval
-      description: How often to refresh the sensor (seconds).
+      name: Update interval
       required: false
       selector:
         number:
@@ -126,41 +127,34 @@ update_global_config:
           step: 0.1
           unit_of_measurement: s
     merge_distance:
-      name: Merge Distance
-      description: Distance threshold to merge targets (meters).
+      name: Merge distance
       required: false
       selector:
         number:
-          min: 0.1
-          max: 5.0
-          step: 0.1
-          unit_of_measurement: m
+          min: 0.01
+          max: 20.0
+          step: 0.01
     target_height:
-      name: Target Height
-      description: Reference height for 3D correction (meters).
+      name: Target height
       required: false
       selector:
         number:
           min: 0.0
-          max: 3.0
+          max: 5.0
           step: 0.1
           unit_of_measurement: m
 
 import_config:
-  name: Import Configuration
-  description: Restore full configuration or single map configuration from a JSON string.
+  name: Import configuration
+  description: Replace saved configuration from bounded, allowlisted JSON. Credentials, network destinations, and runtime targets are rejected. Requires an administrator.
   fields:
     config_json:
-      name: JSON String
-      description: The JSON configuration string exported from the UI.
+      name: Configuration JSON
       required: true
       selector:
         text:
           multiline: true
-    map_group:
-      name: Map Group
-      description: Target map group when importing a legacy single-floor backup. Defaults to 'default'.
-      required: false
-      default: default
-      selector:
-        text:
+
+reset_tracking_history:
+  name: Reset tracking history
+  description: Reset ephemeral tracking state without writing runtime coordinates to storage. Requires an administrator.

@@ -2,24 +2,12 @@
   "config": {
     "step": {
       "user": {
-        "title": "Radar Map Manager",
-        "description": "Initialize the RMM edge computing fusion engine. Click Submit to complete the installation."
+        "title": "Roomabouts",
+        "description": "Set up Roomabouts using radar entities already available in Home Assistant. Click Submit to complete the installation."
       }
     },
     "abort": {
-      "single_instance_allowed": "Radar Map Manager is already configured. Only a single instance is needed."
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "RMM Communication & UDP Settings",
-        "description": "Configure the UDP high-speed stream receiver for RMM radar target coordinates and point clouds.",
-        "data": {
-          "enable_udp": "Enable UDP High-Speed Listener",
-          "udp_port": "UDP Listening Port (Default 18888)"
-        }
-      }
+      "single_instance_allowed": "Roomabouts is already configured. Only a single instance is needed."
     }
   },
   "entity": {
