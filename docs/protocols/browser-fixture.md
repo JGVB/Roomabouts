@@ -1,6 +1,6 @@
 # Roomabouts offline browser fixture protocol
 
-Status: ready for manual execution after the Phase 2 card adapter is integrated
+Status: ready for manual execution
 
 This protocol exercises the real `radar-map-card` custom element with a dependency-free fake Home Assistant connection and synthetic `RoomaboutsSnapshotV1` messages. It does not connect to Home Assistant, a sensor, a cloud service, or an external network destination.
 
@@ -64,6 +64,8 @@ Run the complete checklist at each viewport using the browser's responsive-desig
 | `1920 × 1080` | wall display; map remains bounded and does not stretch diagnostics over the card |
 
 Browser zoom must remain at 100%. Record browser name and exact version in the evidence table below.
+
+The fixture supplies an explicit map-stage height so the card's percentage-height shadow layers resolve: `480px` normally and `420px` at viewport widths of `540px` or less. This sizing is specific to the browser fixture. Actual Home Assistant dashboard sizing and layout behavior remain Phase 4 work.
 
 ## Controls and deterministic behavior
 
@@ -146,7 +148,6 @@ The fixture itself writes no replay, snapshot, diagnostic, or credential data to
 ## Current limitations
 
 - No manual browser execution is claimed by this document. The evidence table is intentionally unfilled.
-- The inherited card cannot consume `RoomaboutsSnapshotV1` until the Phase 2 adapter is wired into `radar-map-card.js`; before that integration, the fixture can validate subscriptions and controls but not correct track rendering.
 - Browser automation and screenshot assertions remain deferred until decision 0003 approves a complete pinned browser toolchain.
 - This fixture does not verify Home Assistant administrator authorization, real WebSocket framing, Store/Recorder behavior, source entities, or sensor hardware.
 - The original Roomabouts cartographic theme and footprint renderer belong to Phase 3.
