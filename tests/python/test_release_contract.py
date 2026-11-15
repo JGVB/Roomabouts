@@ -108,7 +108,10 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertEqual(hacs["filename"], "radar_map_manager.zip")
         self.assertIn('DOMAIN = "radar_map_manager"', constants)
         self.assertIn('WEB_URL = "/radar_map_manager/radar-map-card.js"', constants)
-        self.assertIn('StaticPathConfig("/radar_map_manager"', setup)
+        self.assertRegex(
+            setup,
+            r"StaticPathConfig\(\s*['\"]/radar_map_manager['\"]",
+        )
         self.assertIn('customElements.define(\'radar-map-card\'', card)
         self.assertIn("cd custom_components/radar_map_manager", release)
         self.assertIn("zip -r ../../radar_map_manager.zip .", release)
