@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "name": "one-person-synthetic",
+  "privacy": "synthetic-only",
+  "configuration": {
+    "version": 2,
+    "maps": {
+      "default": {
+        "zones": {
+          "include_zones": [],
+          "exclude_zones": [],
+          "entrance_zones": [],
+          "stationary_zones": []
+        },
+        "config": {
+          "merge_distance": 0.8,
+          "ema_smoothing_level": 7,
+          "update_interval": 0.1,
+          "verify_delay": 0,
+          "hibernation_ttl": 1,
+          "enable_verify_rule": true,
+          "enable_tracking": true,
+          "max_jump_base": 1,
+          "max_jump_speed": 2.5,
+          "stationary_max_hold": 300,
+          "target_height": 1.5,
+          "show_trails": true
+        }
+      }
+    },
+    "radars": {
+      "synthetic-radar": {
+        "map_group": "default",
+        "paused": false,
+        "layout": {
+          "origin_x": 50,
+          "origin_y": 50,
+          "scale_x": 5,
+          "scale_y": 5,
+          "rotation": 0,
+          "radar_type": 2,
+          "pose_revision": "synthetic-pose-1"
+        },
+        "monitor_zones": []
+      }
+    }
+  },
+  "frames": [
+    {
+      "logicalTimeMs": 0,
+      "observations": [
+        {
+          "schemaVersion": 1,
+          "kind": "source-status",
+          "generationId": "synthetic-source-generation-1",
+          "sequence": 0,
+          "logicalTimeMs": 0,
+          "sensorId": "synthetic-radar",
+          "poseRevision": "synthetic-pose-1",
+          "status": "online",
+          "reason": "available"
+        },
+        {
+          "schemaVersion": 1,
+          "kind": "target-observation",
+          "generationId": "synthetic-source-generation-1",
+          "sequence": 1,
+          "logicalTimeMs": 0,
+          "sensorId": "synthetic-radar",
+          "sourceSlot": 1,
+          "poseRevision": "synthetic-pose-1",
+          "positionMeters": {"x": 0.5, "y": 2.0}
+        }
+      ]
+    },
+    {
+      "logicalTimeMs": 100,
+      "observations": [
+        {
+          "schemaVersion": 1,
+          "kind": "target-observation",
+          "generationId": "synthetic-source-generation-1",
+          "sequence": 2,
+          "logicalTimeMs": 100,
+          "sensorId": "synthetic-radar",
+          "sourceSlot": 1,
+          "poseRevision": "synthetic-pose-1",
+          "positionMeters": {"x": 0.7, "y": 2.1}
+        }
+      ]
+    },
+    {
+      "logicalTimeMs": 200,
+      "observations": [
+        {
+          "schemaVersion": 1,
+          "kind": "target-observation",
+          "generationId": "synthetic-source-generation-1",
+          "sequence": 3,
+          "logicalTimeMs": 200,
+          "sensorId": "synthetic-radar",
+          "sourceSlot": 4,
+          "poseRevision": "synthetic-pose-1",
+          "positionMeters": {"x": 0.7, "y": 2.1}
+        }
+      ]
+    },
+    {
+      "logicalTimeMs": 300,
+      "observations": [
+        {
+          "schemaVersion": 1,
+          "kind": "target-inactive",
+          "generationId": "synthetic-source-generation-1",
+          "sequence": 4,
+          "logicalTimeMs": 300,
+          "sensorId": "synthetic-radar",
+          "sourceSlot": 4,
+          "poseRevision": "synthetic-pose-1",
+          "reason": "inactive"
+        }
+      ]
+    }
+  ]
+}

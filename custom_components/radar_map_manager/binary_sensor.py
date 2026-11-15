@@ -6,6 +6,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 from homeassistant.helpers import entity_registry as er
 from .const import DOMAIN
+from .runtime_state import get_runtime_state
 _LOGGER = logging.getLogger(__name__)
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     if discovery_info is None: return
@@ -90,6 +91,7 @@ class RadarZoneSensor(CoordinatorEntity, BinarySensorEntity):
         self.entity_id = f"binary_sensor.{unique_id}"
         self._attr_device_class = BinarySensorDeviceClass.OCCUPANCY
         self._last_triggered = 0
+        self._runtime_state = get_runtime_state(coordinator.hass)
     @property
     def unique_id(self):
         return self._unique_id
@@ -103,17 +105,9 @@ class RadarZoneSensor(CoordinatorEntity, BinarySensorEntity):
         self.async_write_ha_state()
     @callback
     def _handle_coordinator_update(self) -> None:
-        data = self.coordinator.data or {}
         map_group = self.config['map_group']
         zone_points = self.config.get('points', [])
-        maps_data = data.get('maps', {})
-        target_map_data = maps_data.get(map_group)
-        if not target_map_data:
-            for k, v in maps_data.items():
-                if k.lower() == map_group.lower():
-                    target_map_data = v
-                    break
-        fused_targets = target_map_data.get('targets', []) if target_map_data else []
+        fused_targets = self._runtime_state.get_map_targets(map_group)
         is_triggered = False
         for t in fused_targets:
             sources = t.get("sources", [])
@@ -227,9 +221,10 @@ class RadarFallSensor(CoordinatorEntity, BinarySensorEntity):
         self._attr_device_class = BinarySensorDeviceClass.PROBLEM
         self._attr_icon = "mdi:human-fall"
         self._map_group = config['map_group']
-        self._fallen_targets = []
+        self._affected_count = 0
         self._fall_status = "normal"
         self._last_detected = None
+        self._runtime_state = get_runtime_state(coordinator.hass)
     @property
     def unique_id(self):
         return self._unique_id
@@ -248,43 +243,23 @@ class RadarFallSensor(CoordinatorEntity, BinarySensorEntity):
         return {
             "map_group": self._map_group,
             "status": self._fall_status,
-            "fallen_targets": self._fallen_targets,
+            "affected_count": self._affected_count,
             "last_detected": self._last_detected
         }
     @callback
     def _handle_coordinator_update(self) -> None:
-        data = self.coordinator.data or {}
-        maps_data = data.get('maps', {})
-        target_map_data = maps_data.get(self._map_group)
-        if not target_map_data:
-            for k, v in maps_data.items():
-                if k.lower() == self._map_group.lower():
-                    target_map_data = v
-                    break
-        fused_targets = target_map_data.get('targets', []) if target_map_data else []
-        fallen_targets_info = []
+        fused_targets = self._runtime_state.get_map_targets(self._map_group)
+        affected_count = 0
         is_fall_detected = False
         is_suspected = False
         for t in fused_targets:
             posture = t.get("posture")
             if posture == 'fallen':
                 is_fall_detected = True
-                fallen_targets_info.append({
-                    "id": t.get("id"),
-                    "status": "confirmed",
-                    "height": t.get("abs_height"),
-                    "duration": t.get("fall_duration", 0),
-                    "sources": t.get("sources")
-                })
+                affected_count += 1
             elif posture == 'suspected_fall':
                 is_suspected = True
-                fallen_targets_info.append({
-                    "id": t.get("id"),
-                    "status": "suspected",
-                    "height": t.get("abs_height"),
-                    "duration": t.get("fall_duration", 0),
-                    "sources": t.get("sources")
-                })
+                affected_count += 1
         if is_fall_detected:
             self._fall_status = "confirmed"
             self._last_detected = time.time()
@@ -292,7 +267,7 @@ class RadarFallSensor(CoordinatorEntity, BinarySensorEntity):
             self._fall_status = "suspected"
         else:
             self._fall_status = "normal"
-        self._fallen_targets = fallen_targets_info
+        self._affected_count = affected_count
         if self._is_on != is_fall_detected:
             self._is_on = is_fall_detected
         self.async_write_ha_state()

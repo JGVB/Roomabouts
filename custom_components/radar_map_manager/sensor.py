@@ -5,6 +5,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import slugify
 from .const import DOMAIN
+from .runtime_state import get_runtime_state
 _LOGGER = logging.getLogger(__name__)
 def _safe_float(val):
     """Safely convert a value to float, returning 0.0 for None/invalid values."""
@@ -84,6 +85,7 @@ class RadarZoneCountSensor(CoordinatorEntity, SensorEntity):
         self._map_group = config["map_group"]
         self._points = config["points"]
         self._count = 0
+        self._runtime_state = get_runtime_state(coordinator.hass)
     @property
     def unique_id(self):
         return self._unique_id
@@ -95,16 +97,7 @@ class RadarZoneCountSensor(CoordinatorEntity, SensorEntity):
         self.async_write_ha_state()
     @callback
     def _handle_coordinator_update(self) -> None:
-        data = self.coordinator.data or {}
-        maps_data = data.get('maps', {})
-        target_map_data = maps_data.get(self._map_group)
-        if not target_map_data:
-            for k, v in maps_data.items():
-                if k.lower() == self._map_group.lower():
-                    target_map_data = v
-                    break
-        if not target_map_data: return
-        fused_targets = target_map_data.get('targets', [])
+        fused_targets = self._runtime_state.get_map_targets(self._map_group)
         count = 0
         for t in fused_targets:
             sources = t.get("sources", [])
