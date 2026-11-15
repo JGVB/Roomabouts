@@ -101,6 +101,45 @@ class ConfigurationImportTests(unittest.TestCase):
         result["maps"]["default"]["config"]["update_interval"] = 1.0
         self.assertEqual(original["maps"]["default"]["config"]["update_interval"], 0.2)
 
+    def test_full_import_normalizes_only_absent_map_groups_to_default(self) -> None:
+        for missing_value in ("missing", None, ""):
+            with self.subTest(missing_value=missing_value):
+                candidate = _valid_configuration()
+                radar = candidate["radars"]["living_room_radar"]
+                if missing_value == "missing":
+                    radar.pop("map_group")
+                else:
+                    radar["map_group"] = missing_value
+
+                plan = configuration.plan_configuration_import(json.dumps(candidate))
+                result = plan.configuration
+
+                self.assertTrue(plan.replace)
+                self.assertEqual(
+                    result["radars"]["living_room_radar"]["map_group"],
+                    "default",
+                )
+
+        candidate = _valid_configuration()
+        candidate["maps"] = {"floor_2": candidate["maps"].pop("default")}
+        candidate["radars"]["living_room_radar"].pop("map_group")
+        with self.assertRaises(configuration.ConfigurationImportError):
+            configuration.plan_configuration_import(json.dumps(candidate))
+
+        for invalid_value in ("../unsafe", " ", [], {}):
+            with self.subTest(invalid_value=invalid_value):
+                candidate = _valid_configuration()
+                candidate["radars"]["living_room_radar"][
+                    "map_group"
+                ] = invalid_value
+                with self.assertRaises(configuration.ConfigurationImportError):
+                    configuration.plan_configuration_import(json.dumps(candidate))
+
+        candidate = _valid_configuration()
+        candidate["maps"]["default"]["config"]["update_interval"] = None
+        with self.assertRaises(configuration.ConfigurationImportError):
+            configuration.plan_configuration_import(json.dumps(candidate))
+
     def test_full_import_plan_replaces_the_existing_store(self) -> None:
         plan = configuration.plan_configuration_import(
             json.dumps(_valid_configuration()), map_group="ignored_map"
@@ -170,6 +209,69 @@ class ConfigurationImportTests(unittest.TestCase):
         )
         self.assertIn("existing_radar", result["radars"])
         self.assertEqual(result["radars"]["legacy_radar"]["map_group"], "floor_2")
+
+    def test_legacy_merge_rejects_aggregate_map_and_radar_growth(self) -> None:
+        scenarios = (
+            (
+                {
+                    "version": 2,
+                    "maps": {
+                        f"map_{index}": {} for index in range(configuration.MAX_MAPS)
+                    },
+                    "radars": {},
+                },
+                {"global_config": {}},
+                "new_map",
+            ),
+            (
+                {
+                    "version": 2,
+                    "maps": {"default": {}},
+                    "radars": {
+                        f"radar_{index}": {"map_group": "default"}
+                        for index in range(configuration.MAX_RADARS)
+                    },
+                },
+                {"new_radar": {}},
+                "default",
+            ),
+        )
+        for existing, legacy, map_group in scenarios:
+            with self.subTest(map_group=map_group, legacy=legacy):
+                untouched = copy.deepcopy(existing)
+                plan = configuration.plan_configuration_import(
+                    json.dumps(legacy), map_group=map_group
+                )
+
+                with self.assertRaises(configuration.ConfigurationImportError):
+                    configuration.apply_configuration_import(existing, plan)
+
+                self.assertEqual(existing, untouched)
+
+    def test_legacy_merge_rejects_oversized_final_tree_without_mutation(self) -> None:
+        point = [0, 0]
+        zone = {"points": [point] * configuration.MAX_POINTS_PER_ZONE}
+        existing = {
+            "version": 2,
+            "maps": {
+                "default": {
+                    "zones": {"include_zones": [zone] * 103},
+                    "config": {},
+                }
+            },
+            "radars": {},
+        }
+        configuration.validate_aggregate_configuration_bounds(existing)
+        untouched = copy.deepcopy(existing)
+        plan = configuration.plan_configuration_import(
+            json.dumps({"new_radar": {"monitor_zones": [zone]}}),
+            map_group="default",
+        )
+
+        with self.assertRaises(configuration.ConfigurationImportError):
+            configuration.apply_configuration_import(existing, plan)
+
+        self.assertEqual(existing, untouched)
 
     def test_legacy_import_rejects_secrets_network_and_runtime_fields(self) -> None:
         for key, value in (

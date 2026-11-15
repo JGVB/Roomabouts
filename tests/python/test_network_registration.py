@@ -232,6 +232,16 @@ class NetworkRegistrationTests(unittest.TestCase):
             for keyword in defaults_call.keywords
         }
         self.assertEqual(keyword_values.get("map_group"), "plan.map_group")
+        merge_defaults = next(
+            node
+            for node in self.init_tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "_merge_import_defaults"
+        )
+        self.assertIn(
+            "validate_aggregate_configuration_bounds(result)",
+            ast.unparse(merge_defaults),
+        )
 
     def test_admin_wrapper_authorizes_before_invoking_handler(self) -> None:
         wrapper = next(

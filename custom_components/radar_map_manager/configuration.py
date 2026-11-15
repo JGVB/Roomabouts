@@ -586,11 +586,39 @@ def _validate_legacy_configuration(
     return result
 
 
+def _normalize_full_radar_map_groups(value: Any) -> dict[str, Any]:
+    """Return a shallow detached root with legacy-empty map groups defaulted."""
+
+    root = _expect_dict(value, "$")
+    raw_radars = root.get("radars")
+    if not isinstance(raw_radars, dict):
+        return root
+
+    normalized_radars: dict[str, Any] | None = None
+    for radar_name, radar_value in raw_radars.items():
+        if not isinstance(radar_value, dict):
+            continue
+        raw_map_group = radar_value.get("map_group")
+        if (
+            "map_group" in radar_value
+            and raw_map_group is not None
+            and raw_map_group != ""
+        ):
+            continue
+        if normalized_radars is None:
+            normalized_radars = dict(raw_radars)
+        normalized_radars[radar_name] = {**radar_value, "map_group": "default"}
+
+    if normalized_radars is None:
+        return root
+    return {**root, "radars": normalized_radars}
+
+
 def validate_configuration(value: Any) -> dict[str, Any]:
     """Validate and return a detached, normalized configuration object."""
 
-    _validate_tree_bounds(value)
-    root = _expect_dict(value, "$")
+    root = _normalize_full_radar_map_groups(value)
+    _validate_tree_bounds(root)
     _reject_unknown_keys(root, frozenset({"version", "maps", "radars"}), "$")
     if set(root) != {"version", "maps", "radars"}:
         raise ConfigurationImportError(
@@ -659,18 +687,30 @@ def plan_configuration_import(
 ) -> ConfigurationImportPlan:
     """Plan a bounded full replacement or legacy single-map merge."""
 
-    value = _parse_bounded_json(config_json)
-    _validate_tree_bounds(value)
-    root = _expect_dict(value, "$")
+    root = _expect_dict(_parse_bounded_json(config_json), "$")
     safe_map_group = _identifier(map_group, "$.map_group")
     if set(root) == {"version", "maps", "radars"}:
         return ConfigurationImportPlan(True, validate_configuration(root))
 
+    _validate_tree_bounds(root)
     return ConfigurationImportPlan(
         False,
         _validate_legacy_configuration(root, safe_map_group),
         safe_map_group,
     )
+
+
+def validate_aggregate_configuration_bounds(value: Any) -> None:
+    """Enforce global resource caps on a detached persistent store."""
+
+    _validate_tree_bounds(value)
+    root = _expect_dict(value, "$")
+    maps = _expect_dict(root.get("maps"), "$.maps")
+    radars = _expect_dict(root.get("radars"), "$.radars")
+    if len(maps) > MAX_MAPS:
+        raise ConfigurationImportError(f"configuration exceeds {MAX_MAPS} maps")
+    if len(radars) > MAX_RADARS:
+        raise ConfigurationImportError(f"configuration exceeds {MAX_RADARS} radars")
 
 
 def apply_configuration_import(
@@ -679,7 +719,9 @@ def apply_configuration_import(
     """Apply a validated import plan without mutating existing configuration."""
 
     if plan.replace:
-        return copy.deepcopy(plan.configuration)
+        result = copy.deepcopy(plan.configuration)
+        validate_aggregate_configuration_bounds(result)
+        return result
     if plan.map_group is None:
         raise ConfigurationImportError("legacy import is missing its target map")
     if not isinstance(existing, dict):
@@ -710,4 +752,5 @@ def apply_configuration_import(
 
     for radar_name, radar in plan.configuration["radars"].items():
         radars[radar_name] = copy.deepcopy(radar)
+    validate_aggregate_configuration_bounds(result)
     return result

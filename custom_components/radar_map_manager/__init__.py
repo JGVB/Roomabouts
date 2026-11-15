@@ -47,6 +47,7 @@ from .configuration import (
     MAX_ZONES_PER_KIND,
     apply_configuration_import,
     plan_configuration_import,
+    validate_aggregate_configuration_bounds,
     validate_layout_configuration,
     validate_map_configuration_settings,
     validate_zone_configuration,
@@ -411,6 +412,7 @@ def _merge_import_defaults(
             **copy.deepcopy(default_config),
             **map_data.get("config", {}),
         }
+    validate_aggregate_configuration_bounds(result)
     return result
 
 
