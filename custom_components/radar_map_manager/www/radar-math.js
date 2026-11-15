@@ -1,12 +1,20 @@
+const finiteOr = (value, fallback) => {
+    if (value === null || value === undefined || value === '') return fallback;
+    const parsed = typeof value === 'number' ? value : Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const defaultNow = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
 export class RadarMath {
     constructor() {}
     calculate(cfg, point) {
         let xVal = point.x;
         let yVal = point.y;
-        const rType = cfg.radar_type || 1;
+        const rType = finiteOr(cfg.radar_type, 1);
         if (cfg.enable_correction !== false && rType === 1 && !cfg.ceiling_mount && yVal > 0) {
-            const radarH = parseFloat(cfg.mount_height) || 2.5;
-            const targetH = parseFloat(cfg.target_height) || 1.2;
+            const radarH = finiteOr(cfg.mount_height, 2.5);
+            const targetH = finiteOr(cfg.target_height, 1.2);
             const hDiff = Math.abs(radarH - targetH);
             const xM = xVal / 1000.0;
             const yM = yVal / 1000.0;
@@ -26,26 +34,26 @@ export class RadarMath {
         if (cfg.mirror_x) {
             xm = -xm;
         }
-        const rot = parseFloat(cfg.rotation) || 0;
+        const rot = finiteOr(cfg.rotation, 0);
         const baseRad = (rot - 90) * Math.PI / 180.0;
         const yVecX = Math.cos(baseRad);
         const yVecY = Math.sin(baseRad);
         const xVecX = Math.cos(baseRad + (Math.PI / 2));
         const xVecY = Math.sin(baseRad + (Math.PI / 2));
-        const ox = parseFloat(cfg.origin_x) || 50;
-        const oy = parseFloat(cfg.origin_y) || 50;
-        const sx = parseFloat(cfg.scale_x) || 5;
-        const sy = parseFloat(cfg.scale_y) || 5;
+        const ox = finiteOr(cfg.origin_x, 50);
+        const oy = finiteOr(cfg.origin_y, 50);
+        const sx = finiteOr(cfg.scale_x, 5);
+        const sy = finiteOr(cfg.scale_y, 5);
         const finalX = ox + (xm * sx * xVecX) + (ym * sy * yVecX);
         const finalY = oy + (xm * sx * xVecY) + (ym * sy * yVecY);
         return { left: finalX, top: finalY, active: true };
     }
     canvasToRadarLocal(cfg, px, py) {
-        const ox = parseFloat(cfg.origin_x) || 50;
-        const oy = parseFloat(cfg.origin_y) || 50;
-        const sx = parseFloat(cfg.scale_x) || 5;
-        const sy = parseFloat(cfg.scale_y) || 5;
-        const rot = parseFloat(cfg.rotation) || 0;
+        const ox = finiteOr(cfg.origin_x, 50);
+        const oy = finiteOr(cfg.origin_y, 50);
+        const sx = finiteOr(cfg.scale_x, 5);
+        const sy = finiteOr(cfg.scale_y, 5);
+        const rot = finiteOr(cfg.rotation, 0);
         const baseRad = (rot - 90) * Math.PI / 180.0;
         const yVecX = Math.cos(baseRad);
         const yVecY = Math.sin(baseRad);
@@ -53,8 +61,8 @@ export class RadarMath {
         const xVecY = Math.sin(baseRad + (Math.PI / 2));
         const dx = px - ox;
         const dy = py - oy;
-        let xm = (dx * xVecX + dy * xVecY) / (sx || 1);
-        let ym = (dx * yVecX + dy * yVecY) / (sy || 1);
+        let xm = sx === 0 ? 0 : (dx * xVecX + dy * xVecY) / sx;
+        let ym = sy === 0 ? 0 : (dx * yVecX + dy * yVecY) / sy;
         if (cfg.mirror_x) {
             xm = -xm;
         }
@@ -65,16 +73,16 @@ export class RadarMath {
         if (cfg.mirror_x) {
             curXm = -curXm;
         }
-        const rot = parseFloat(cfg.rotation) || 0;
+        const rot = finiteOr(cfg.rotation, 0);
         const baseRad = (rot - 90) * Math.PI / 180.0;
         const yVecX = Math.cos(baseRad);
         const yVecY = Math.sin(baseRad);
         const xVecX = Math.cos(baseRad + (Math.PI / 2));
         const xVecY = Math.sin(baseRad + (Math.PI / 2));
-        const ox = parseFloat(cfg.origin_x) || 50;
-        const oy = parseFloat(cfg.origin_y) || 50;
-        const sx = parseFloat(cfg.scale_x) || 5;
-        const sy = parseFloat(cfg.scale_y) || 5;
+        const ox = finiteOr(cfg.origin_x, 50);
+        const oy = finiteOr(cfg.origin_y, 50);
+        const sx = finiteOr(cfg.scale_x, 5);
+        const sy = finiteOr(cfg.scale_y, 5);
         const px = ox + (curXm * sx * xVecX) + (ym * sy * yVecX);
         const py = oy + (curXm * sx * xVecY) + (ym * sy * yVecY);
         return [parseFloat(px.toFixed(2)), parseFloat(py.toFixed(2))];
@@ -98,12 +106,13 @@ export class RadarMath {
     }
 }
 export class TargetFilter {
-    constructor() {
+    constructor(clock = defaultNow) {
+        this._clock = typeof clock === 'function' ? clock : defaultNow;
         this.tracks = new Map();
-        this.lastFrameTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+        this.lastFrameTime = this._clock();
     }
     update(key, measX, measY, metadata = {}) {
-        const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+        const now = this._clock();
         let track = this.tracks.get(key);
         if (!track) {
             track = {
@@ -159,7 +168,7 @@ export class TargetFilter {
         track.vy = track.vy * (1 - Kv) + measVy * Kv;
         return track;
     }
-    step(now) {
+    step(now = this._clock()) {
         const dt = Math.max(0.001, Math.min(0.05, (now - this.lastFrameTime) / 1000));
         this.lastFrameTime = now;
         const activeTracks = [];
@@ -201,7 +210,7 @@ export class TargetFilter {
         return activeTracks;
     }
     prune(activeKeys) {
-        const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+        const now = this._clock();
         for (const [key, track] of this.tracks.entries()) {
             if (!activeKeys.has(key)) {
                 if ((now - track.lastUpdate) > 0.8) {

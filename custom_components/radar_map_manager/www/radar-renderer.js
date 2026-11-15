@@ -1,4 +1,4 @@
-import { TargetFilter } from './radar-math.js?v=1.3.20';
+import { TargetFilter } from './radar-math.js?v=1.3.12';
 export class RadarRenderer {
     constructor(math, root) {
         this.math = math;

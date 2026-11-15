@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "calculate_tolerance": 1e-9,
+  "round_trip_tolerance": 0.01,
+  "cases": [
+    {
+      "name": "zero origin and zero rotation",
+      "config": {
+        "ceiling_mount": true,
+        "origin_x": 0,
+        "origin_y": 0,
+        "rotation": 0,
+        "scale_x": 10,
+        "scale_y": 20
+      },
+      "point_mm": { "x": 1000, "y": 1000 },
+      "expected_canvas": { "left": 10, "top": -20 }
+    },
+    {
+      "name": "quarter turn",
+      "config": {
+        "ceiling_mount": true,
+        "origin_x": 50,
+        "origin_y": 50,
+        "rotation": 90,
+        "scale_x": 5,
+        "scale_y": 5
+      },
+      "point_mm": { "x": 1000, "y": 2000 },
+      "expected_canvas": { "left": 60, "top": 55 }
+    },
+    {
+      "name": "half turn with nonuniform scale",
+      "config": {
+        "ceiling_mount": true,
+        "origin_x": 50,
+        "origin_y": 50,
+        "rotation": 180,
+        "scale_x": 5,
+        "scale_y": 10
+      },
+      "point_mm": { "x": 1000, "y": 2000 },
+      "expected_canvas": { "left": 45, "top": 70 }
+    },
+    {
+      "name": "mirrored x axis",
+      "config": {
+        "ceiling_mount": true,
+        "mirror_x": true,
+        "origin_x": 50,
+        "origin_y": 50,
+        "rotation": 0,
+        "scale_x": 5,
+        "scale_y": 5
+      },
+      "point_mm": { "x": 1000, "y": 2000 },
+      "expected_canvas": { "left": 45, "top": 40 }
+    },
+    {
+      "name": "arbitrary rotation and signed origin",
+      "config": {
+        "ceiling_mount": true,
+        "origin_x": 12.5,
+        "origin_y": -4,
+        "rotation": 30,
+        "scale_x": 3,
+        "scale_y": 7
+      },
+      "point_mm": { "x": 1500, "y": 500 },
+      "expected_canvas": {
+        "left": 18.147114317029974,
+        "top": -4.781088913245535
+      }
+    }
+  ]
+}
