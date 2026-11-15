@@ -1,6 +1,6 @@
 # Roomabouts RMM Fork Foundation and Personal One-Room Proof
 
-- Status: Implementing — Phase 1
+- Status: Phase 1 code and review complete — pushed CI pending
 - Plan date: 2026-11-15
 - Coordinator: Roomabouts coordinator
 - Implementation branch/worktree: `codex/fork-foundation` at `/Users/jvanbev/Documents/Codebase/Roomabouts`
@@ -124,7 +124,7 @@ Approval of this plan explicitly accepts:
 7. personal Home Assistant installation only after the security/Recorder gates pass;
 8. an original enchanted-cartographic visual direction rather than copying a branded fictional map.
 
-Approval does not authorize a push, public release, live Home Assistant configuration change, Recorder deletion, real capture, sensor purchase, BLE/UWB work, or distribution.
+This approval did not by itself authorize a push, public release, live Home Assistant configuration change, Recorder deletion, real capture, sensor purchase, BLE/UWB work, or distribution. The user's subsequent direction to begin and complete the repository setup authorized local commits and pushes to `codex/fork-foundation`; it did not authorize a public release, live installation, real capture, hardware work, or distribution.
 
 ## Compatibility and presentation contracts
 
@@ -270,10 +270,10 @@ Owner: Coordinator
 - [x] Preserve the MIT license and upstream history.
 - [x] Supersede the greenfield plan and draft the fork compatibility/security decisions.
 - [x] Obtain user approval of this plan and decision 0002.
-- [ ] Commit the governance baseline locally.
-- [ ] Push only after explicit user direction.
+- [x] Commit the governance baseline locally as `6427528`.
+- [x] Push the governance baseline only after explicit user direction.
 
-Exit gate: the working tree contains only reviewed governance additions, the upstream source is unchanged, and the user has approved the first code phase.
+Historical exit gate: commit `6427528` contained the reviewed governance baseline, retained upstream ancestry and source, and was pushed only after the user approved the first code phase.
 
 ### Phase 1 — Characterization tests and security/privacy floor
 
@@ -283,6 +283,8 @@ Dependencies: approved plan and decision 0002
 Expected new files:
 
 - `.github/workflows/quality.yml`
+- `custom_components/radar_map_manager/authorization.py`
+- `custom_components/radar_map_manager/configuration.py`
 - `custom_components/radar_map_manager/observation.py`
 - `custom_components/radar_map_manager/ha_entity_adapter.py`
 - `custom_components/radar_map_manager/presentation.py`
@@ -295,32 +297,35 @@ Expected new files:
 - `tests/python/test_storage_migration.py`
 - `tests/python/test_presentation.py`
 - `tests/python/test_authorization.py`
+- `tests/python/test_configuration_import.py`
+- `tests/python/test_frontend_safety.py`
+- `tests/python/test_branding.py`
 - `tests/python/test_network_registration.py`
 - `tests/python/test_release_contract.py`
 - `tests/js/radar-math.test.js`
-- `tests/js/stream-adapter.test.js`
+- `tests/js/radar-ui-url.test.js`
 - `docs/protocols/storage-persistence.md`
 
 Tasks:
 
-- [ ] Record baseline behavior before changing runtime code. Pure tests load extracted/pure modules directly and do not import the integration package initializer; Home Assistant-dependent behavior is reserved for Phase 4.
-- [ ] Freeze `RoomaboutsObservationV1` and a source conformance suite shared by synthetic/replay input and the Home Assistant entity adapter.
-- [ ] Move entity naming/discovery, X/Y-half assembly, unit conversion, freshness, availability, and source-generation handling into the adapter. Make fusion accept normalized observations and forbid imports or coordinate reads from Home Assistant/vendor state.
-- [ ] Add X-before-Y, Y-before-X, unchanged-axis, stale-half, unavailable, restart/generation, unit-conversion, malformed/non-finite, duplicate/out-of-order, and source-slot-relabel cases. Use a conservative configurable pairing policy until Phase 5 evidence freezes it.
-- [ ] Add injected clocks to backend fusion and frontend filtering while keeping production defaults.
-- [ ] Add shared transform goldens for 0, 90, 180, arbitrary rotation, mirror, zero origin, unit conversion, and round trip.
-- [ ] Add deterministic synthetic fusion/replay cases for empty, one target, source-slot relabel, cross-radar cluster, entrance, exclusion, stationary hold, stale, hibernating, and impossible jump.
-- [ ] Freeze `RoomaboutsSnapshotV1`, its generation/reset rules, canonical JSON serialization, and a pure sanitized stream/config view with explicit field allowlists.
-- [ ] Split persistent configuration from ephemeral runtime target state. Add a backed-up version-1-to-version-2 migration that strips `maps.*.targets`, `radars.*.targets`, and any other runtime-only field.
-- [ ] Remove PIN values from logs and ordinary browser payloads; seed credential canaries in tests.
-- [ ] Require a verified Home Assistant administrator before coordinate snapshot subscription installs a dispatcher listener. Reject non-admin and missing-user calls without returning map, source, target, or configuration data.
-- [ ] Add fail-closed Home Assistant administrator checks to every mutating service and WebSocket command. Unit-test a pure authorization boundary for admin, non-admin, and missing-user contexts; exercise real HA authorization in Phase 4.
-- [ ] Replace broad configuration import with a bounded allowlisted schema; reject credentials, network destinations, runtime keys, excessive nesting/size, non-finite numbers, and out-of-range values.
-- [ ] Make RMM-exclusive UDP, MQTT subscriptions/publishing, pairing/hardware commands, and direct-radar proxy unavailable and unregistered for the first proof. No config option or migrated value may activate them.
-- [ ] Retain a coordinate-free master entity containing count and approved metadata only; keep coordinates on `rmm/stream` only.
-- [ ] Establish a single frontend/cache release-version source and a test that all imports follow it.
-- [ ] Pin Python 3.14.3 and Deno 2.6.9 in CI. Pin every third-party GitHub Action to a reviewed full commit SHA and add explicit read-only workflow permissions, with narrowly scoped release write permission only where required.
-- [ ] Add the local/CI quality gate without React, Vite, pnpm, npm runtime dependencies, or broad formatting churn. Preserve release archive behavior.
+- [x] Record baseline behavior before changing runtime code. Pure tests load extracted/pure modules directly and do not import the integration package initializer; Home Assistant-dependent behavior is reserved for Phase 4.
+- [x] Freeze `RoomaboutsObservationV1` and a source conformance suite shared by synthetic/replay input and the Home Assistant entity adapter.
+- [x] Move entity naming/discovery, X/Y-half assembly, unit conversion, freshness, availability, and source-generation handling into the adapter. Make fusion accept normalized observations and forbid imports or coordinate reads from Home Assistant/vendor state.
+- [x] Add X-before-Y, Y-before-X, unchanged-axis, stale-half, unavailable, restart/generation, unit-conversion, malformed/non-finite, duplicate/out-of-order, and source-slot-relabel cases. Use a conservative configurable pairing policy until Phase 5 evidence freezes it.
+- [x] Add injected clocks to backend fusion and frontend filtering while keeping production defaults.
+- [x] Add shared transform goldens for 0, 90, 180, arbitrary rotation, mirror, zero origin, unit conversion, and round trip.
+- [x] Add deterministic synthetic fusion/replay cases for empty, one target, source-slot relabel, cross-radar cluster, entrance, exclusion, stationary hold, stale, hibernating, and impossible jump.
+- [x] Freeze `RoomaboutsSnapshotV1`, its generation/reset rules, canonical JSON serialization, and a pure sanitized stream/config view with explicit field allowlists.
+- [x] Split persistent configuration from ephemeral runtime target state. Add a backed-up version-1-to-version-2 migration that strips `maps.*.targets`, `radars.*.targets`, and any other runtime-only field.
+- [x] Remove PIN values from logs and ordinary browser payloads; seed credential canaries in tests.
+- [x] Require a verified Home Assistant administrator before coordinate snapshot subscription installs a dispatcher listener. Reject non-admin and missing-user calls without returning map, source, target, or configuration data.
+- [x] Add fail-closed Home Assistant administrator checks to every mutating service and WebSocket command. Unit-test a pure authorization boundary for admin, non-admin, and missing-user contexts; exercise real HA authorization in Phase 4.
+- [x] Replace broad configuration import with a bounded allowlisted schema; reject credentials, network destinations, runtime keys, excessive nesting/size, non-finite numbers, and out-of-range values.
+- [x] Make RMM-exclusive UDP, MQTT subscriptions/publishing, pairing/hardware commands, and direct-radar proxy unavailable and unregistered for the first proof. No config option or migrated value may activate them.
+- [x] Retain a coordinate-free master entity containing count and approved metadata only; keep coordinates on `rmm/stream` only.
+- [x] Establish a single frontend/cache release-version source and a test that all imports follow it.
+- [x] Pin Python 3.14.3 and Deno 2.6.9 in CI. Pin every third-party GitHub Action to a reviewed full commit SHA and add explicit read-only workflow permissions, with narrowly scoped release write permission only where required.
+- [x] Add the local/CI quality gate without React, Vite, pnpm, npm runtime dependencies, or broad formatting churn. Preserve release archive behavior.
 
 Exit gate:
 
@@ -331,6 +336,16 @@ Exit gate:
 - Version-1 migration removes runtime coordinates, configuration saves remain canary-free, and the master entity contract is coordinate-free.
 - Deterministic and transform tests pass twice.
 - The documented dependency-free commands run in the pinned CI job. Editor/card and real Home Assistant behavior remain explicitly unverified until Phases 2–4.
+
+#### Phase 1 implementation evidence
+
+- Implementation commits run from `601425d` through `ed2eb81` on `codex/fork-foundation`; the fork-governance baseline is `6427528`.
+- The final local gate passes Python compilation, 111 Python tests, Deno checking, 10 Deno tests, JSON/YAML parsing, `git diff --check`, and `git fsck --strict`. The deterministic Python and Deno suites pass twice on the final code tree.
+- Independent core, security/import, and frontend-safety reviews returned `APPROVE` after their requested corrections were integrated. A fresh integrated production-readiness review also returned `APPROVE` at `ed2eb81`; the pushed GitHub Actions quality job remains the final Phase 1 gate at the time of this entry.
+- Backend presentation tests own Phase 1 snapshot sanitization. Browser semantic adaptation is deliberately Phase 2; `tests/js/stream-adapter.test.js` was therefore not created in Phase 1.
+- The inherited browser Backup/Restore UI is temporarily unavailable because the live `RoomaboutsSnapshotV1` stream is not a configuration document. Phase 2 must provide a config-only adapter before that UI can safely return.
+- Static checks and pure tests do not claim real Home Assistant behavior. Setup/unload, actual administrator authorization, `.storage`, Recorder, source-entity history, and socket/subscription behavior remain Phase 4/5 protocol work.
+- The real card still lacks the `RoomaboutsSnapshotV1` browser adapter and lifecycle cleanup required by Phase 2. No live browser/card, Home Assistant instance, or sensor-hardware acceptance claim is made by Phase 1.
 
 ### Phase 2 — Presentation adapter and offline replay
 
@@ -358,6 +373,7 @@ Tasks:
 - [ ] Add fixtures for exit/re-entry, hibernation, inherited-ID reuse, reconnect, map change, explicit reset, and generation change; prove no alias or trail crosses the boundary.
 - [ ] Prove source-slot relabeling cannot create a named identity claim.
 - [ ] Keep identity/evidence fields absent but structurally optional for a later resolver.
+- [ ] Assign a distinct Roomabouts prototype manifest version before loading the real card so upstream `1.3.12` browser cache entries cannot be reused.
 - [ ] Run the named manual browser-fixture protocol at fixed viewports and record console output; no automated browser claim is made before Phase 3 toolchain approval.
 
 Exit gate: Deno tests prove semantic adaptation for zero/one/many snapshots and generation cleanup; the named manual browser fixture shows the real card loads and tears down without a console error; replay hashes match; no live HA or sensor is needed. Screenshot and interaction automation remain deferred.
