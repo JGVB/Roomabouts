@@ -215,9 +215,16 @@ Deno.test('TargetFilter clears non-emitting anchors and does not bridge re-obser
     filter.update('track', 1, 1, observedMetadata);
     now = 2100;
     filter.update('track', 2, 2, observedMetadata);
+    assertDeepEquals(
+        filter.tracks.get('track').history,
+        [
+            { x: 1, y: 1, time: 2000 },
+            { x: 2, y: 2, time: 2100 },
+        ],
+        'observed measurements create history using backend coordinates and time',
+    );
     now = 2116;
     filter.step();
-    assert(filter.tracks.get('track').history.length > 1, 'observed movement creates history');
 
     now = 2200;
     filter.update('track', 3, 3, {
@@ -239,6 +246,60 @@ Deno.test('TargetFilter clears non-emitting anchors and does not bridge re-obser
         { x: reobserved.x, y: reobserved.y, vx: reobserved.vx, vy: reobserved.vy },
         { x: 90, y: 90, vx: 0, vy: 0 },
         're-observation cannot interpolate from the stale anchor',
+    );
+});
+
+Deno.test('TargetFilter steps never fabricate observed history samples', () => {
+    let now = 4000;
+    const filter = new TargetFilter(() => now);
+
+    filter.update('track', 0, 0, observedMetadata);
+    now = 4100;
+    filter.update('track', 1, 2, observedMetadata);
+    const measurementHistory = JSON.parse(JSON.stringify(filter.tracks.get('track').history));
+
+    for (const frameTime of [4116, 4132, 4200, 4500]) {
+        now = frameTime;
+        filter.step();
+    }
+
+    assertDeepEquals(
+        filter.tracks.get('track').history,
+        measurementHistory,
+        'filter-frame prediction cannot add trail samples without a backend update',
+    );
+    assertDeepEquals(
+        measurementHistory,
+        [
+            { x: 0, y: 0, time: 4000 },
+            { x: 1, y: 2, time: 4100 },
+        ],
+        'history samples use observed measurement coordinates and time',
+    );
+});
+
+Deno.test('TargetFilter observed history stays distance-spaced and bounded', () => {
+    let now = 5000;
+    const filter = new TargetFilter(() => now);
+    filter.update('track', 0, 0, observedMetadata);
+
+    now += 30;
+    filter.update('track', 0.4, 0, observedMetadata);
+    assert(filter.tracks.get('track').history.length === 1, 'distance threshold remains strict');
+
+    now += 30;
+    filter.update('track', 0.41, 0, observedMetadata);
+    for (let x = 1; x <= 8; x += 1) {
+        now += 30;
+        filter.update('track', x, 0, observedMetadata);
+    }
+
+    const history = filter.tracks.get('track').history;
+    assert(history.length === 6, 'history remains capped at six observed samples');
+    assertDeepEquals(
+        history.map((sample) => sample.x),
+        [3, 4, 5, 6, 7, 8],
+        'oldest observed samples are evicted in insertion order',
     );
 });
 

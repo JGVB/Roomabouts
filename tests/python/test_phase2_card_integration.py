@@ -65,9 +65,10 @@ class Phase2CardIntegrationTests(unittest.TestCase):
     def test_phase2_card_is_forced_read_only_and_edit_entry_fails_closed(self):
         self.assertIn("this.config = { ...config, read_only: true }", self.card)
         self.assertIn("if (!this.config.read_only) this.initLogic()", self.card)
-        self.assertIn("return { ...h, states: {} }", self.card)
         self.assertIn("const sanitizedHass = this.getMockHass(h)", self.card)
+        self.assertIn("this._hass = sanitizedHass", self.card)
         self.assertIn("this.state.rawHass = sanitizedHass", self.card)
+        self.assertIn("this.state.hass = sanitizedHass", self.card)
         self.assertNotIn("this._hass = h", self.card)
         self.assertNotIn("this.state.rawHass = h", self.card)
         self.assertIn("if (this.config?.read_only)", self.card)
@@ -75,6 +76,33 @@ class Phase2CardIntegrationTests(unittest.TestCase):
         edit_enable = self.card.index("this.state.editing = true", guard)
         self.assertLess(guard, edit_enable)
         self.assertIn("this.state.editing = false", self.card[guard:edit_enable])
+
+    def test_read_only_hass_facade_retains_only_connection_and_bounded_language(self):
+        facade_start = self.card.index("getMockHass(h) {")
+        facade_end = self.card.index("\n    initLogic()", facade_start)
+        facade = self.card[facade_start:facade_end]
+
+        self.assertIn("const EMPTY_HASS_STATES = Object.freeze({})", self.card)
+        self.assertIn("h.language.length <= 35", facade)
+        self.assertIn("LANGUAGE_TAG.test(h.language)", facade)
+        self.assertIn("return Object.freeze({", facade)
+        self.assertIn("connection: h.connection", facade)
+        self.assertIn("language,", facade)
+        self.assertIn("states: EMPTY_HASS_STATES", facade)
+        for canary in (
+            "...h",
+            "auth",
+            "registries",
+            "services",
+            "callService",
+            "callApi",
+            "callWS",
+            "fetchWithAuth",
+            "user",
+            "config",
+        ):
+            with self.subTest(canary=canary):
+                self.assertNotIn(canary, facade)
 
     def test_reset_and_connection_boundaries_share_one_clear_path(self):
         self.assertIn("if (presentation.reset)", self.card)
@@ -115,6 +143,25 @@ class Phase2CardIntegrationTests(unittest.TestCase):
                 self.assertIn(literal, self.renderer)
 
         self.assertIn("this.lastFrameTime = this._clock()", self.math)
+
+    def test_dom_trails_have_a_hard_count_cap_and_clear_with_runtime(self):
+        for literal in (
+            "const MAX_DOM_TRAILS = 96",
+            "this._trailEntries = new Map()",
+            "while (this._trailEntries.size >= MAX_DOM_TRAILS)",
+            "this._trailEntries.keys().next().value",
+            "this._removeTrail(oldestTrail)",
+            "this._trailEntries.set(trail, timerId)",
+            "this._clearTrails()",
+            "this._trackTrail(trail)",
+        ):
+            with self.subTest(literal=literal):
+                self.assertIn(literal, self.renderer)
+        self.assertNotIn("_trailTimers", self.renderer)
+        self.assertLess(
+            self.renderer.index("this._trackTrail(trail)"),
+            self.renderer.index("dotsLayer.insertBefore(trail, dot)"),
+        )
 
     def test_six_frontend_modules_share_the_numeric_manifest_version(self):
         manifest = json.loads((COMPONENT / "manifest.json").read_text(encoding="utf-8"))

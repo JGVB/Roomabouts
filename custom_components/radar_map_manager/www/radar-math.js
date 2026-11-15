@@ -111,6 +111,14 @@ export class TargetFilter {
         this.tracks = new Map();
         this.lastFrameTime = this._clock();
     }
+    _recordObservedHistory(track, x, y, time) {
+        if (!track.history) track.history = [];
+        const lastSample = track.history[track.history.length - 1];
+        if (!lastSample || Math.hypot(x - lastSample.x, y - lastSample.y) > 0.4) {
+            track.history.push({ x, y, time });
+            if (track.history.length > 6) track.history.shift();
+        }
+    }
     update(key, measX, measY, metadata = {}) {
         const now = this._clock();
         let track = this.tracks.get(key);
@@ -160,6 +168,7 @@ export class TargetFilter {
             track.targetX = measX;
             track.targetY = measY;
             track.metadata = metadata;
+            if (emitsFootprints) this._recordObservedHistory(track, measX, measY, now);
             return track;
         }
         const safeDt = Math.max(0.01, Math.min(2.0, dt));
@@ -188,6 +197,7 @@ export class TargetFilter {
         track.y += Kp * (measY - track.y);
         track.vx = track.vx * (1 - Kv) + measVx * Kv;
         track.vy = track.vy * (1 - Kv) + measVy * Kv;
+        if (emitsFootprints) this._recordObservedHistory(track, measX, measY, now);
         return track;
     }
     step(now = this._clock()) {
@@ -221,16 +231,9 @@ export class TargetFilter {
                 track.y += toY * Math.min(1.0, dt * 12);
                 track.alpha = 1.0;
             }
-            if (track.metadata?.emitFootprint === true
-                && track.metadata?.lifecycle === 'confirmed'
-                && track.metadata?.positionBasis === 'observed') {
-                if (!track.history) track.history = [];
-                const lastHist = track.history[track.history.length - 1];
-                if (!lastHist || Math.hypot(track.x - lastHist.x, track.y - lastHist.y) > 0.4) {
-                    track.history.push({ x: track.x, y: track.y, time: now });
-                    if (track.history.length > 6) track.history.shift();
-                }
-            } else {
+            if (track.metadata?.emitFootprint !== true
+                || track.metadata?.lifecycle !== 'confirmed'
+                || track.metadata?.positionBasis !== 'observed') {
                 track.history = [];
             }
             activeTracks.push(track);

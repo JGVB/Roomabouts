@@ -3,6 +3,10 @@ import { RadarUI } from './radar-ui.js?v=1.4.0';
 import { RadarRenderer } from './radar-renderer.js?v=1.4.0';
 import { RadarEditor } from './radar-editor.js?v=1.4.0';
 import { RoomaboutsPresentationAdapter } from './roomabouts-presentation.js?v=1.4.0';
+
+const EMPTY_HASS_STATES = Object.freeze({});
+const LANGUAGE_TAG = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
+
 class RadarMapCardNative extends HTMLElement {
     constructor() {
         super();
@@ -298,7 +302,16 @@ class RadarMapCardNative extends HTMLElement {
     }
     getMockHass(h) {
         if (!h) return null;
-        return { ...h, states: {} };
+        const language = typeof h.language === 'string'
+            && h.language.length <= 35
+            && LANGUAGE_TAG.test(h.language)
+            ? h.language
+            : '';
+        return Object.freeze({
+            connection: h.connection,
+            language,
+            states: EMPTY_HASS_STATES,
+        });
     }
     initLogic() {
         const that = this;

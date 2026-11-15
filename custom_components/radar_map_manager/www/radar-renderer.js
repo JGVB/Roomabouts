@@ -1,4 +1,7 @@
 import { TargetFilter } from './radar-math.js?v=1.4.0';
+
+const MAX_DOM_TRAILS = 96;
+
 export class RadarRenderer {
     constructor(math, root) {
         this.math = math;
@@ -9,16 +12,33 @@ export class RadarRenderer {
         this.currentConfig = null;
         this._isCanvasCleared = false;
         this._domCache = {};
-        this._trailTimers = new Set();
+        this._trailEntries = new Map();
         this._resizeHandler = null;
         this._ro = null;
         this.targetFilter = new TargetFilter();
     }
+    _removeTrail(trail) {
+        if (!trail) return;
+        const timerId = this._trailEntries.get(trail);
+        if (timerId !== undefined) clearTimeout(timerId);
+        this._trailEntries.delete(trail);
+        if (trail.parentNode) trail.parentNode.removeChild(trail);
+    }
+    _clearTrails() {
+        for (const trail of [...this._trailEntries.keys()]) this._removeTrail(trail);
+    }
+    _trackTrail(trail) {
+        while (this._trailEntries.size >= MAX_DOM_TRAILS) {
+            const oldestTrail = this._trailEntries.keys().next().value;
+            this._removeTrail(oldestTrail);
+        }
+        const timerId = setTimeout(() => this._removeTrail(trail), 1200);
+        this._trailEntries.set(trail, timerId);
+    }
     clearRuntime() {
         if (this.animFrameId !== null) cancelAnimationFrame(this.animFrameId);
         this.animFrameId = null;
-        for (const timerId of this._trailTimers) clearTimeout(timerId);
-        this._trailTimers.clear();
+        this._clearTrails();
         this.targetFilter.clear();
         for (const element of Object.values(this._domCache)) {
             if (element?.parentNode) element.parentNode.removeChild(element);
@@ -907,6 +927,7 @@ export class RadarRenderer {
         }
         const dotsLayer = this.root.getElementById('dots-layer');
         if (isCanvasMode) {
+            this._clearTrails();
             if (dotsLayer) {
                 dotsLayer.style.display = 'none';
                 if (dotsLayer.firstChild) dotsLayer.innerHTML = '';
@@ -990,6 +1011,7 @@ export class RadarRenderer {
                         trail.style.background = col;
                         trail.style.left = prevX + '%';
                         trail.style.top = prevY + '%';
+                        this._trackTrail(trail);
                         dotsLayer.insertBefore(trail, dot);
                         requestAnimationFrame(() => {
                             requestAnimationFrame(() => {
@@ -997,11 +1019,6 @@ export class RadarRenderer {
                                 trail.style.transform = 'translate(-50%, -50%) scale(0.2)';
                             });
                         });
-                        const trailTimer = setTimeout(() => {
-                            this._trailTimers.delete(trailTimer);
-                            if (trail.parentNode) trail.parentNode.removeChild(trail);
-                        }, 1200);
-                        this._trailTimers.add(trailTimer);
                     }
                 }
                 const arrowId = `arrow_${dotId}`;
