@@ -14,8 +14,6 @@ const EDITOR_I18N = {
     "pause_radar": { "zh": "雷达运行中 (点击暂停)", "en": "Radar Running (Click to Pause)" },
     "resume_radar": { "zh": "雷达已暂停 (点击恢复)", "en": "Radar Paused (Click to Resume)" },
     "del_zone": { "zh": "确定要删除该区域吗？", "en": "Are you sure you want to delete this zone?" },
-    "confirm_restore": { "zh": "⚠️ 恢复备份将应用导入的雷达和区域配置。\n\n确定要立即恢复吗？", "en": "⚠️ Restoring backup will apply imported radar and zone configurations.\n\nProceed to restore now?" },
-    "restore_ok": { "zh": "✅ 配置恢复成功！页面即将自动刷新...", "en": "✅ Configuration restored successfully! Reloading page..." },
     "unsaved": { "zh": "检测到未保存的更改！现在保存吗？", "en": "Unsaved changes detected! Save now?" },
     "draw_3": { "zh": "请绘制至少3个点，或选择一个区域。", "en": "Please draw 3+ points or select a zone." },
     "name_conflict": { "zh": "名称冲突！\"{0}\" 将导致实体ID重复。请使用唯一的名称。", "en": "Name conflict! \"{0}\" will result in a duplicate Entity ID. Please use a unique name." },
@@ -649,69 +647,6 @@ export class RadarEditor {
                     this.ui.updateStatus(state, config); 
                     this.renderer.draw(state, config, state.hass);
                 }
-            };
-        }
-        bindClick('btn-backup', () => {
-            let exportData = null;
-            if (this.host && this.host.fullRawData) {
-                exportData = JSON.parse(JSON.stringify(this.host.fullRawData));
-                delete exportData._force_reset_history;
-                if (exportData.maps) {
-                    Object.values(exportData.maps).forEach(m => {
-                        if (m && m.targets) delete m.targets;
-                    });
-                }
-            } else {
-                const currentMg = state.mapGroup || "default";
-                exportData = {
-                    version: 1,
-                    maps: {
-                        [currentMg]: {
-                            zones: state.data.global_zones || { include_zones: [], exclude_zones: [] },
-                            config: state.data.global_config || {}
-                        }
-                    },
-                    radars: {}
-                };
-                Object.entries(state.data || {}).forEach(([k, v]) => {
-                    if (!['global_zones', 'global_config', 'fused_targets'].includes(k)) {
-                        exportData.radars[k] = { ...v, map_group: currentMg };
-                    }
-                });
-            }
-            const dataStr = JSON.stringify(exportData, null, 2);
-            const blob = new Blob([dataStr], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `rmm_full_backup_${Date.now()}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-        });
-        bindClick('btn-restore', () => { const f = this.root.getElementById('file-upload'); if(f) f.click(); });
-        const fileInput = this.root.getElementById('file-upload');
-        if (fileInput) {
-            fileInput.onchange = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    try {
-                        const json = JSON.parse(ev.target.result);
-                        if (confirm(this.t("confirm_restore"))) {
-                            state.hass.callService('radar_map_manager', 'import_config', {
-                                config_json: JSON.stringify(json)
-                            }).then(() => {
-                                alert(this.t("restore_ok"));
-                                setTimeout(() => location.reload(), 800);
-                            }).catch((err) => {
-                                alert(this.t("ha_reject") + JSON.stringify(err));
-                            });
-                        }
-                    } catch (err) { alert("Invalid JSON: " + (err.message || err)); }
-                };
-                reader.readAsText(file);
-                fileInput.value = '';
             };
         }
         const selR = this.root.getElementById('sel-radar'); 

@@ -39,13 +39,16 @@ FORBIDDEN_ACTIONS = (
     "callWS(",
     "subscribeEvents(",
     "window.open(",
+    "fetch(",
+    "new WebSocket(",
+    "new EventSource(",
+    "sendBeacon(",
 )
 
 SERVICE_CALL = re.compile(r"callService\(\s*['\"](?P<domain>[^'\"]+)['\"]")
-IMPORT_CALL = re.compile(
-    r"callService\(\s*['\"]radar_map_manager['\"]\s*,\s*"
-    r"['\"]import_config['\"]\s*,\s*(?P<payload>\{.*?\})\s*\)",
-    re.DOTALL,
+DIRECT_NETWORK_SINK = re.compile(
+    r"\b(?:fetch|EventSource|sendBeacon)\s*\(|"
+    r"\bnew\s+(?:window\.)?WebSocket\s*\("
 )
 ADD_PAYLOAD = re.compile(
     r"const\s+payload\s*=\s*(?P<payload>\{.*?\})\s*;\s*"
@@ -74,6 +77,8 @@ class FrontendSafetyTests(unittest.TestCase):
             with self.subTest(action=action):
                 self.assertNotIn(action, self.bundle)
 
+        self.assertNotRegex(self.bundle, DIRECT_NETWORK_SINK)
+
     def test_only_admin_snapshot_websocket_subscription_remains(self):
         card = self.sources["radar-map-card.js"]
         self.assertEqual(self.bundle.count("subscribeMessage("), 1)
@@ -89,18 +94,46 @@ class FrontendSafetyTests(unittest.TestCase):
         domains = {match.group("domain") for match in matches}
         self.assertEqual(domains, {"radar_map_manager"})
 
-    def test_import_config_payloads_are_config_json_only(self):
-        matches = [
-            match
-            for source in self.sources.values()
-            for match in IMPORT_CALL.finditer(source)
-        ]
-        self.assertEqual(len(matches), 1)
+    def test_snapshot_export_and_config_import_ui_are_unavailable(self):
+        forbidden = (
+            "btn-backup",
+            "btn-restore",
+            "file-upload",
+            'type="file"',
+            "confirm_restore",
+            "restore_ok",
+            "rmm_full_backup",
+            "new Blob(",
+            "createObjectURL",
+            "revokeObjectURL",
+            "FileReader",
+            "readAsText(",
+            "a.download",
+            "import_config",
+        )
+        for literal in forbidden:
+            with self.subTest(literal=literal):
+                self.assertNotIn(literal, self.bundle)
 
-        for match in matches:
-            with self.subTest(payload=match.group("payload")):
-                keys = [key.group("key") for key in OBJECT_KEY.finditer(match.group("payload"))]
-                self.assertEqual(keys, ["config_json"])
+    def test_background_image_sinks_use_only_normalized_asset_path(self):
+        ui = self.sources["radar-ui.js"]
+        self.assertEqual(ui.count("config.bg_image"), 1)
+        self.assertIn(
+            "normalizeSameOriginAssetUrl(config.bg_image, window.location.origin)",
+            ui,
+        )
+        self.assertIn("rootEl.style.backgroundImage = `url(${JSON.stringify(safeAssetPath)})`", ui)
+        self.assertIn("img.src = safeAssetPath", ui)
+        self.assertNotRegex(
+            ui,
+            r"(?:backgroundImage|\.src)\s*=\s*[^;\n]*config\.bg_image",
+        )
+        self.assertNotRegex(ui, r"\.src\s*=\s*config(?:\.|\[)")
+        self.assertNotRegex(
+            ui,
+            r"style\.(?:background|backgroundImage)\s*=\s*[^;\n]*config(?:\.|\[)",
+        )
+        self.assertNotRegex(ui, r"url\([^\n]*config(?:\.|\[)")
 
     def test_add_radar_payload_contains_no_network_or_secret_fields(self):
         editor = self.sources["radar-editor.js"]

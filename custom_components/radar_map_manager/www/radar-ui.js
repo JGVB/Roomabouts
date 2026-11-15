@@ -1,3 +1,19 @@
+export function normalizeSameOriginAssetUrl(value, currentOrigin) {
+    if (typeof value !== 'string' || value.trim() === '') return null;
+
+    try {
+        const base = new URL(currentOrigin);
+        if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password) return null;
+
+        const resolved = new URL(value.trim(), `${base.origin}/`);
+        if (!['http:', 'https:'].includes(resolved.protocol)) return null;
+        if (resolved.origin !== base.origin || resolved.username || resolved.password) return null;
+
+        return `${resolved.pathname}${resolved.search}${resolved.hash}`;
+    } catch (_err) {
+        return null;
+    }
+}
 
 const UI_I18N = {
     "panel_title": { zh: "::: Roomabouts 家居地图", en: "::: Roomabouts" },
@@ -90,10 +106,6 @@ const UI_I18N = {
     "title_j_speed": { zh: "人体最大移动速度上限 (米/秒)", en: "Max human movement speed (m/s)" },
     "lbl_ab_time": { zh: "学习", en: "AB_Time" },
     "title_ab_time": { zh: "自动识别排除区环境噪点扫描时长 (秒)", en: "Auto-Block Scan Duration (5-50s)" },
-    "btn_backup": { zh: "导出备份", en: "Backup" },
-    "title_backup": { zh: "导出雷达与防区配置为本地 JSON 文件", en: "Export configuration to JSON" },
-    "btn_restore": { zh: "导入还原", en: "Restore" },
-    "title_restore": { zh: "从本地 JSON 文件恢复雷达与防区配置", en: "Import configuration from JSON" },
     "btn_reset": { zh: "重置目标", en: "Clear Tracks" },
     "title_reset": { zh: "清空目标追踪历史并重新编号", en: "Clear Tracking History" },
     "lbl_fall_alert": { zh: "跌倒预警", en: "Fall Alert" },
@@ -406,10 +418,6 @@ export class RadarUI {
             const lbl = rowAb.querySelector('label');
             if (lbl) lbl.innerText = t('lbl_ab_time');
         }
-        const btnBackup = this.root.getElementById('btn-backup');
-        if (btnBackup) { btnBackup.innerText = t('btn_backup'); btnBackup.title = t('title_backup'); }
-        const btnRestore = this.root.getElementById('btn-restore');
-        if (btnRestore) { btnRestore.innerText = t('btn_restore'); btnRestore.title = t('title_restore'); }
         const btnReset = this.root.getElementById('btn-reset');
         if (btnReset) { btnReset.innerText = t('btn_reset'); btnReset.title = t('title_reset'); }
     }
@@ -440,15 +448,19 @@ export class RadarUI {
             this.root.appendChild(container);
             rootEl = container;
         }
-        if (config.bg_image) {
-            rootEl.style.backgroundImage = `url('${config.bg_image}')`;
+        const safeAssetPath = normalizeSameOriginAssetUrl(config.bg_image, window.location.origin);
+        if (safeAssetPath) {
+            rootEl.style.backgroundImage = `url(${JSON.stringify(safeAssetPath)})`;
             rootEl.style.backgroundSize = 'contain';
             rootEl.style.backgroundPosition = 'center';
             rootEl.style.backgroundRepeat = 'no-repeat';
-            if (!rootEl.dataset.hasRatio) {
+            if (rootEl.dataset.backgroundAsset !== safeAssetPath) {
+                rootEl.dataset.backgroundAsset = safeAssetPath;
+                delete rootEl.dataset.hasRatio;
                 const img = new Image();
-                img.src = config.bg_image;
+                img.src = safeAssetPath;
                 img.onload = () => {
+                    if (rootEl.dataset.backgroundAsset !== safeAssetPath) return;
                     const ratio = img.naturalWidth / img.naturalHeight;
                     rootEl.style.aspectRatio = `${ratio}`;
                     rootEl.style.height = 'auto'; 
@@ -456,7 +468,10 @@ export class RadarUI {
                 };
             }
         } else {
-            rootEl.style.background = 'transparent';
+            rootEl.style.backgroundImage = 'none';
+            delete rootEl.dataset.backgroundAsset;
+            delete rootEl.dataset.hasRatio;
+            rootEl.style.aspectRatio = '';
             rootEl.style.width = '100%';
             rootEl.style.height = '100%';
         }
@@ -872,11 +887,8 @@ export class RadarUI {
                         </div> <!-- ✨ 结束滚动区域 -->
                         <div class="separator" style="margin: 1px 0;"></div>
                         <div class="actions">
-                            <button id="btn-backup" style="background:#1976D2; color:white;">Backup</button>
-                            <button id="btn-restore" style="background:#F57F17; color:black;">Restore</button>
                             <button id="btn-reset" style="background:#7B1FA2; color:white;" title="Clear Tracking History">Clear Tracks</button>
                         </div>
-                        <input type="file" id="file-upload" accept=".json" style="display:none">
                     </div>
                 </div>
             </div>
