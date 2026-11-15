@@ -6,10 +6,12 @@ export const ROOMABOUTS_PRESENTATION_LIMITS = Object.freeze({
     maxObjectKeys: 64,
     maxArrayItems: 512,
     maxTracks: 128,
+    maxLifetimeTrackBindings: 512,
     maxSources: 64,
     maxRadars: 64,
     maxZonesPerKind: 128,
     maxPointsPerZone: 256,
+    observationAgeToleranceMs: 0.001,
 });
 
 const RESET_REASONS = new Set([
@@ -389,6 +391,16 @@ const copyTrack = (value, path, logicalTimeMs) => {
     if (!LIFECYCLE_POSITION_BASES[lifecycle].has(positionBasis)) {
         fail('incompatible-lifecycle-position', path);
     }
+    const lastObservedAgeMs = finiteNumber(
+        value.lastObservedAgeMs,
+        `${path}.lastObservedAgeMs`,
+        { min: 0, max: Number.MAX_SAFE_INTEGER },
+    );
+    const expectedAgeMs = logicalTimeMs - observedAt;
+    if (Math.abs(lastObservedAgeMs - expectedAgeMs)
+        > ROOMABOUTS_PRESENTATION_LIMITS.observationAgeToleranceMs) {
+        fail('inconsistent-observation-age', `${path}.lastObservedAgeMs`);
+    }
     const track = {
         trackId: safeString(value.trackId, `${path}.trackId`, {
             maxLength: 18,
@@ -410,10 +422,7 @@ const copyTrack = (value, path, logicalTimeMs) => {
             pattern: SOURCE_REF,
         }),
         observedAt,
-        lastObservedAgeMs: finiteNumber(value.lastObservedAgeMs, `${path}.lastObservedAgeMs`, {
-            min: 0,
-            max: Number.MAX_SAFE_INTEGER,
-        }),
+        lastObservedAgeMs,
     };
     if (Object.hasOwn(value, 'uncertainty')) {
         track.uncertainty = copyUniqueStringList(value.uncertainty, `${path}.uncertainty`, {
@@ -427,7 +436,7 @@ const copyTrack = (value, path, logicalTimeMs) => {
     return track;
 };
 
-const copySourceHealth = (value, path, logicalTimeMs) => {
+const copySourceHealth = (value, path) => {
     if (!Array.isArray(value)
         || value.length > ROOMABOUTS_PRESENTATION_LIMITS.maxSources) {
         fail('invalid-source-health', path);
@@ -454,7 +463,6 @@ const copySourceHealth = (value, path, logicalTimeMs) => {
                 min: 0,
                 max: Number.MAX_SAFE_INTEGER,
             });
-            if (copied.updatedAt > logicalTimeMs) fail('future-source-health', `${itemPath}.updatedAt`);
         }
         result.push(copied);
     }
@@ -500,7 +508,7 @@ export function validateRoomaboutsSnapshot(value) {
         logicalTimeMs,
         map: copyMap(value.map, '$.map'),
         tracks,
-        sourceHealth: copySourceHealth(value.sourceHealth, '$.sourceHealth', logicalTimeMs),
+        sourceHealth: copySourceHealth(value.sourceHealth, '$.sourceHealth'),
     };
     if (Object.hasOwn(value, 'resetReason')) {
         snapshot.resetReason = enumValue(value.resetReason, RESET_REASONS, '$.resetReason');
@@ -534,7 +542,10 @@ export class RoomaboutsPresentationAdapter {
         this._generationId = null;
         this._mapId = null;
         this._lastSequence = null;
+        this._lastLogicalTimeMs = null;
         this._activeTrackIds = new Set();
+        this._trackAliases = new Map();
+        this._aliasTracks = new Map();
     }
 
     /** Accept one snapshot or return a side-effect-free ignored result. */
@@ -556,6 +567,11 @@ export class RoomaboutsPresentationAdapter {
                 : 'out-of-order-sequence';
             return ignoredResult(reason);
         }
+        if (sameGeneration
+            && this._lastLogicalTimeMs !== null
+            && snapshot.logicalTimeMs < this._lastLogicalTimeMs) {
+            return ignoredResult('logical-time-regression');
+        }
 
         let boundaryReason = null;
         if (this._generationId === null) {
@@ -571,13 +587,34 @@ export class RoomaboutsPresentationAdapter {
         const clearedTrackIds = boundaryReason
             ? [...this._activeTrackIds].sort()
             : [];
-        if (boundaryReason) this._activeTrackIds.clear();
 
         const tracks = snapshot.tracks
             .map((track) => ({ ...track, emitFootprint: isFootprintEligible(track) }))
             .sort((left, right) => (
                 left.trackId < right.trackId ? -1 : left.trackId > right.trackId ? 1 : 0
             ));
+        const nextTrackAliases = boundaryReason
+            ? new Map()
+            : new Map(this._trackAliases);
+        const nextAliasTracks = boundaryReason
+            ? new Map()
+            : new Map(this._aliasTracks);
+        for (const track of tracks) {
+            const knownAlias = nextTrackAliases.get(track.trackId);
+            const knownTrack = nextAliasTracks.get(track.anonymousAlias);
+            if ((knownAlias !== undefined && knownAlias !== track.anonymousAlias)
+                || (knownTrack !== undefined && knownTrack !== track.trackId)) {
+                return ignoredResult('alias-binding-conflict');
+            }
+            if (knownAlias === undefined) {
+                if (nextTrackAliases.size
+                    >= ROOMABOUTS_PRESENTATION_LIMITS.maxLifetimeTrackBindings) {
+                    return ignoredResult('track-lifetime-limit');
+                }
+                nextTrackAliases.set(track.trackId, track.anonymousAlias);
+                nextAliasTracks.set(track.anonymousAlias, track.trackId);
+            }
+        }
         const nextTrackIds = new Set(tracks.map((track) => track.trackId));
         const removedTrackIds = boundaryReason
             ? []
@@ -588,7 +625,10 @@ export class RoomaboutsPresentationAdapter {
         this._generationId = snapshot.generationId;
         this._mapId = snapshot.map.mapId;
         this._lastSequence = snapshot.sequence;
+        this._lastLogicalTimeMs = snapshot.logicalTimeMs;
         this._activeTrackIds = nextTrackIds;
+        this._trackAliases = nextTrackAliases;
+        this._aliasTracks = nextAliasTracks;
 
         return {
             accepted: true,
@@ -615,7 +655,10 @@ export class RoomaboutsPresentationAdapter {
         this._generationId = null;
         this._mapId = null;
         this._lastSequence = null;
+        this._lastLogicalTimeMs = null;
         this._activeTrackIds.clear();
+        this._trackAliases.clear();
+        this._aliasTracks.clear();
         return {
             accepted: true,
             reason: 'reset',

@@ -1,4 +1,5 @@
 import {
+    ROOMABOUTS_PRESENTATION_LIMITS,
     RoomaboutsPresentationAdapter,
     RoomaboutsSnapshotError,
     validateRoomaboutsSnapshot,
@@ -214,6 +215,98 @@ Deno.test('duplicate and out-of-order snapshots cannot revive visual state', () 
     assertEquals(reentry.clearedTrackIds, [], 're-entry does not fabricate a reset');
 });
 
+Deno.test('logical time cannot regress within a generation', () => {
+    const adapter = new RoomaboutsPresentationAdapter();
+    assert(adapter.ingest(makeSnapshot({ logicalTimeMs: 1000 })).accepted, 'initial time');
+
+    const regression = adapter.ingest(makeSnapshot({
+        sequence: 1,
+        logicalTimeMs: 999,
+        resetReason: 'explicit-reset',
+    }));
+    assertEquals(regression.reason, 'logical-time-regression', 'same-generation reset cannot rewind time');
+
+    const recovered = adapter.ingest(makeSnapshot({ sequence: 1, logicalTimeMs: 1001 }));
+    assert(recovered.accepted, 'rejected time does not advance sequence or mutate state');
+
+    const nextGeneration = adapter.ingest(makeSnapshot({
+        generationId: 'generation-b',
+        sequence: 0,
+        logicalTimeMs: 10,
+        resetReason: 'source-restart',
+    }));
+    assert(nextGeneration.accepted, 'new generation may restart its logical clock');
+    assert(nextGeneration.reset, 'new generation is a reset boundary');
+});
+
+Deno.test('track and alias bindings remain bidirectionally stable for a lifetime', () => {
+    const adapter = new RoomaboutsPresentationAdapter();
+    const trackA = makeTrack('track-aaaaaaaaaaaa', { anonymousAlias: 'Wayfarer-a1b2c3' });
+    const trackB = makeTrack('track-bbbbbbbbbbbb', { anonymousAlias: 'Wayfarer-b2c3d4' });
+    assert(adapter.ingest(makeSnapshot({ tracks: [trackA, trackB] })).accepted, 'initial bindings');
+    assert(adapter.ingest(makeSnapshot({ sequence: 1, tracks: [] })).accepted, 'disappearance');
+    assert(adapter.ingest(makeSnapshot({ sequence: 2, tracks: [trackA] })).accepted, 'stable re-entry');
+
+    const changedAlias = adapter.ingest(makeSnapshot({
+        sequence: 3,
+        tracks: [{ ...trackA, anonymousAlias: 'Wayfarer-c3d4e5' }],
+    }));
+    assertEquals(changedAlias.reason, 'alias-binding-conflict', 'track cannot change aliases');
+
+    const reusedAlias = adapter.ingest(makeSnapshot({
+        sequence: 3,
+        tracks: [makeTrack('track-cccccccccccc', { anonymousAlias: trackA.anonymousAlias })],
+    }));
+    assertEquals(reusedAlias.reason, 'alias-binding-conflict', 'alias cannot move to another track');
+
+    const swapped = adapter.ingest(makeSnapshot({
+        sequence: 3,
+        tracks: [
+            { ...trackA, anonymousAlias: trackB.anonymousAlias },
+            { ...trackB, anonymousAlias: trackA.anonymousAlias },
+        ],
+    }));
+    assertEquals(swapped.reason, 'alias-binding-conflict', 'aliases cannot be swapped');
+
+    const recovered = adapter.ingest(makeSnapshot({ sequence: 3, tracks: [trackA, trackB] }));
+    assert(recovered.accepted, 'binding failures leave prior state untouched');
+
+    const reset = adapter.ingest(makeSnapshot({
+        generationId: 'generation-b',
+        sequence: 0,
+        resetReason: 'source-restart',
+        tracks: [makeTrack('track-cccccccccccc', { anonymousAlias: trackA.anonymousAlias })],
+    }));
+    assert(reset.accepted, 'generation reset clears old bindings');
+});
+
+Deno.test('generation lifetime alias bindings are explicitly bounded', () => {
+    const adapter = new RoomaboutsPresentationAdapter();
+    const batchSize = 128;
+    const makeBoundTrack = (index) => makeTrack(
+        `track-${index.toString(16).padStart(12, '0')}`,
+        { anonymousAlias: `Wayfarer-${index.toString(16).padStart(6, '0')}` },
+    );
+
+    for (let offset = 0; offset < ROOMABOUTS_PRESENTATION_LIMITS.maxLifetimeTrackBindings; offset += batchSize) {
+        const tracks = Array.from({ length: batchSize }, (_, index) => makeBoundTrack(offset + index));
+        const result = adapter.ingest(makeSnapshot({ sequence: offset / batchSize, tracks }));
+        assert(result.accepted, `binding batch ${offset / batchSize}`);
+    }
+
+    const overflow = adapter.ingest(makeSnapshot({
+        sequence: ROOMABOUTS_PRESENTATION_LIMITS.maxLifetimeTrackBindings / batchSize,
+        tracks: [makeBoundTrack(ROOMABOUTS_PRESENTATION_LIMITS.maxLifetimeTrackBindings)],
+    }));
+    assertEquals(overflow.reason, 'track-lifetime-limit', 'lifetime map cannot grow without bound');
+
+    const existing = adapter.ingest(makeSnapshot({
+        sequence: ROOMABOUTS_PRESENTATION_LIMITS.maxLifetimeTrackBindings / batchSize,
+        tracks: [makeBoundTrack(0)],
+    }));
+    assert(existing.accepted, 'overflow rejection does not corrupt existing bindings');
+});
+
 Deno.test('aliases ignore source slots and never cross reset boundaries', () => {
     const adapter = new RoomaboutsPresentationAdapter();
     const id = 'track-aaaaaaaaaaaa';
@@ -286,6 +379,26 @@ Deno.test('validator enforces bounded exact RoomaboutsSnapshotV1 shapes', () => 
     assert(clone !== valid, 'validator returns a detached value');
     assertEquals(clone, valid, 'detached value is semantically equal');
 
+    const futureHealth = makeSnapshot({
+        logicalTimeMs: 100,
+        sourceHealth: [{
+            sensorId: 'source-0123456789ab',
+            status: 'online',
+            reason: 'available',
+            updatedAt: 1000,
+        }],
+    });
+    assertEquals(
+        validateRoomaboutsSnapshot(futureHealth).sourceHealth[0].updatedAt,
+        1000,
+        'backend permits health timestamps later than snapshot logical time',
+    );
+
+    const withinAgeTolerance = makeSnapshot({
+        tracks: [makeTrack('track-aaaaaaaaaaaa', { lastObservedAgeMs: 100.0005 })],
+    });
+    assert(validateRoomaboutsSnapshot(withinAgeTolerance), 'small age rounding difference is accepted');
+
     const cases = [];
     cases.push({ ...valid, schemaVersion: 2 });
     cases.push({ ...valid, unknown: true });
@@ -295,6 +408,10 @@ Deno.test('validator enforces bounded exact RoomaboutsSnapshotV1 shapes', () => 
     cases.push({ ...valid, sourceHealth: [{ ...valid.sourceHealth[0], token: 'secret' }] });
     cases.push({ ...valid, sourceHealth: [valid.sourceHealth[0], { ...valid.sourceHealth[0] }] });
     cases.push({ ...valid, map: { ...valid.map, config: { device_pin: 'secret' } } });
+    cases.push({
+        ...valid,
+        tracks: [makeTrack('track-aaaaaaaaaaaa', { lastObservedAgeMs: 101 })],
+    });
     for (const [lifecycle, positionBasis] of [
         ['tentative', 'held'],
         ['confirmed', 'last-seen'],
