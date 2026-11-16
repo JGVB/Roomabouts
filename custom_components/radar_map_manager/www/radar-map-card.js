@@ -26,7 +26,9 @@ class RadarMapCardNative extends HTMLElement {
         this.attachShadow({ mode: 'open' });
         this.math = new RadarMath();
         this.ui = new RadarUI(this.shadowRoot);
-        this.renderer = new RadarRenderer(this.math, this.shadowRoot);
+        this.renderer = new RadarRenderer(this.math, this.shadowRoot, {
+            requestRoomaboutsRedraw: () => this._queueRender(),
+        });
         this.editor = new RadarEditor(this, this.shadowRoot, this.math, this.ui, this.renderer);
         this.presentationAdapter = new RoomaboutsPresentationAdapter();
         this.state = {
@@ -66,8 +68,10 @@ class RadarMapCardNative extends HTMLElement {
         this._roomaboutsTrailStore = null;
         this._roomaboutsAcceptingPresentation = false;
         this._roomaboutsResumeListenersAttached = false;
+        this._roomaboutsMediaQueries = [];
         this._boundRoomaboutsVisibilityChange = this._handleRoomaboutsVisibilityChange.bind(this);
         this._boundRoomaboutsPageShow = this._handleRoomaboutsPageShow.bind(this);
+        this._boundRoomaboutsMediaChange = this._handleRoomaboutsMediaChange.bind(this);
         this.resizeObserver = new ResizeObserver(entries => {
             for (let entry of entries) {
                 const { width, height } = entry.contentRect;
@@ -172,12 +176,31 @@ class RadarMapCardNative extends HTMLElement {
             || !this._isRoomaboutsFieldView()) return;
         document.addEventListener('visibilitychange', this._boundRoomaboutsVisibilityChange);
         window.addEventListener('pageshow', this._boundRoomaboutsPageShow);
+        if (typeof window.matchMedia === 'function') {
+            for (const query of ['(forced-colors: active)']) {
+                const media = window.matchMedia(query);
+                if (typeof media.addEventListener === 'function') {
+                    media.addEventListener('change', this._boundRoomaboutsMediaChange);
+                } else if (typeof media.addListener === 'function') {
+                    media.addListener(this._boundRoomaboutsMediaChange);
+                }
+                this._roomaboutsMediaQueries.push(media);
+            }
+        }
         this._roomaboutsResumeListenersAttached = true;
     }
     _detachRoomaboutsResumeListeners() {
         if (!this._roomaboutsResumeListenersAttached) return;
         document.removeEventListener('visibilitychange', this._boundRoomaboutsVisibilityChange);
         window.removeEventListener('pageshow', this._boundRoomaboutsPageShow);
+        for (const media of this._roomaboutsMediaQueries) {
+            if (typeof media.removeEventListener === 'function') {
+                media.removeEventListener('change', this._boundRoomaboutsMediaChange);
+            } else if (typeof media.removeListener === 'function') {
+                media.removeListener(this._boundRoomaboutsMediaChange);
+            }
+        }
+        this._roomaboutsMediaQueries = [];
         this._roomaboutsResumeListenersAttached = false;
     }
     _handleRoomaboutsVisibilityChange() {
@@ -185,6 +208,9 @@ class RadarMapCardNative extends HTMLElement {
     }
     _handleRoomaboutsPageShow() {
         this._expireRoomaboutsTrails();
+    }
+    _handleRoomaboutsMediaChange() {
+        if (this._isRoomaboutsFieldView()) this._queueRender();
     }
     _expireRoomaboutsTrails() {
         if (!this._isRoomaboutsFieldView() || !this._roomaboutsTrailStore) return;

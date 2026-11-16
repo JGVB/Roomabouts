@@ -2,6 +2,7 @@ import {
     ROOMABOUTS_FIELD_LEDGER_CSS,
     ROOMABOUTS_FIELD_LEDGER_PROPERTIES,
     ROOMABOUTS_FIELD_LEDGER_TOKENS,
+    ROOMABOUTS_STEP_GLYPH,
     isRoomaboutsReadOnly,
     sanitizeRoomaboutsReadOnlyConfig,
 } from '../../custom_components/radar_map_manager/www/roomabouts-theme.js';
@@ -141,10 +142,73 @@ Deno.test('Field Ledger CSS is deterministic, procedural, isolated, and noninter
     assert(ROOMABOUTS_FIELD_LEDGER_CSS.includes('height: 13px;'), 'frozen glyph height');
     assert(ROOMABOUTS_FIELD_LEDGER_CSS.includes('#roomabouts-semantic-layer'), 'semantic layer styling');
     assert(ROOMABOUTS_FIELD_LEDGER_CSS.includes('clip-path: inset(50%);'), 'bounded hidden semantics');
-    assert(ROOMABOUTS_FIELD_LEDGER_CSS.includes('pointer-events: none;'), 'read-only pointer behavior');
+    const rootRule = ROOMABOUTS_FIELD_LEDGER_CSS.match(/\.roomabouts-readonly \{([\s\S]*?)\n\}/u)?.[1] ?? '';
+    assert(!rootRule.includes('pointer-events:'), 'read-only root does not suppress dashboard interaction');
+    for (const selector of [
+        '.roomabouts-readonly #map-container,',
+        '.roomabouts-readonly #click-layer,',
+    ]) {
+        const start = ROOMABOUTS_FIELD_LEDGER_CSS.indexOf(selector);
+        const end = ROOMABOUTS_FIELD_LEDGER_CSS.indexOf('\n}', start);
+        assert(start >= 0 && ROOMABOUTS_FIELD_LEDGER_CSS.slice(start, end).includes('pointer-events: none;'),
+            `${selector} visual layer is noninteractive`);
+    }
     assert(ROOMABOUTS_FIELD_LEDGER_CSS.includes('touch-action: auto;'), 'dashboard scrolling behavior');
+    assert(ROOMABOUTS_FIELD_LEDGER_CSS.includes('overflow-wrap: anywhere;'), 'labels wrap complete text');
+    assert(!ROOMABOUTS_FIELD_LEDGER_CSS.includes('text-overflow: ellipsis;'), 'labels never hide state behind ellipsis');
     assert(ROOMABOUTS_FIELD_LEDGER_CSS.includes('@media (prefers-reduced-motion: reduce)'), 'reduced motion');
     assert(ROOMABOUTS_FIELD_LEDGER_CSS.includes('@media (forced-colors: active)'), 'forced colors');
+});
+
+Deno.test('CSS and Canvas share the frozen 7 by 13 survey-step descriptor', () => {
+    assertEquals(ROOMABOUTS_STEP_GLYPH, {
+        widthPx: 7,
+        heightPx: 13,
+        forefootHeightPx: 8,
+        forefoot: {
+            cornerRadiusPx: 0.7,
+            notchOuterXRatio: 0.42,
+            notchInnerXRatio: 0.34,
+            notchYRatio: 0.78,
+        },
+        heelLeftPx: 1,
+        heelTopPx: 9,
+        heelWidthPx: 4,
+        heelHeightPx: 4,
+        heelCornerRadiusPx: 1,
+        forefootClipPath: 'polygon(0 0, 100% 0, 100% 100%, 42% 100%, 34% 78%, 0 78%)',
+    }, 'shared footprint geometry');
+    assert(Object.isFrozen(ROOMABOUTS_STEP_GLYPH), 'step descriptor is frozen');
+    assert(Object.isFrozen(ROOMABOUTS_STEP_GLYPH.forefoot), 'forefoot descriptor is frozen');
+});
+
+Deno.test('reduced-motion and forced-color rules cover the complete visual overlay', () => {
+    const css = ROOMABOUTS_FIELD_LEDGER_CSS;
+    for (const selector of [
+        '.roomabouts-readonly .roomabouts-visual-layer',
+        '.roomabouts-readonly .roomabouts-zone-label',
+        '.roomabouts-readonly .roomabouts-track-label',
+        '.roomabouts-readonly .roomabouts-station-label',
+        '.roomabouts-readonly .roomabouts-track::before',
+        '.roomabouts-readonly .roomabouts-track::after',
+        '.roomabouts-readonly .roomabouts-step::before',
+        '.roomabouts-readonly .roomabouts-step::after',
+    ]) {
+        assert(css.includes(selector), `motion selector ${selector}`);
+    }
+    for (const systemColor of ['Canvas', 'CanvasText', 'Highlight', 'HighlightText', 'GrayText']) {
+        assert(css.includes(systemColor), `forced-color token ${systemColor}`);
+    }
+    assert(!/forced-color-adjust\s*:\s*none/iu.test(css), 'forced-color adjustment remains native');
+    const forcedColors = css.slice(css.indexOf('@media (forced-colors: active)'));
+    assert(
+        forcedColors.includes('.roomabouts-readonly .roomabouts-step {\n        color: var(--roomabouts-state-observed);'),
+        'forced-color footprint forefoot uses the observed-state token shared with Canvas',
+    );
+    assert(
+        forcedColors.includes('.roomabouts-readonly .roomabouts-step::before {\n        background: var(--roomabouts-state-observed);'),
+        'forced-color forefoot background keeps the shared system token',
+    );
 });
 
 Deno.test('Field Ledger region treatments use distinct URL-free procedural geometry', () => {
@@ -189,6 +253,7 @@ Deno.test('focus uses a paper separation halo and explicit forced-colors treatme
     assert(css.includes('outline: 3px solid var(--roomabouts-focus);'), 'three-pixel focus outline');
     assert(css.includes('outline-offset: 2px;'), 'focus outline follows the separation halo');
     assert(css.includes('box-shadow: 0 0 0 2px Canvas;'), 'forced-colors separation halo');
+    assert(css.includes('border: 2px solid Canvas;'), 'forced-colors visible halo fallback');
     assert(css.includes('outline-color: Highlight;'), 'forced-colors focus outline');
 
     const allowedShadows = new Set([

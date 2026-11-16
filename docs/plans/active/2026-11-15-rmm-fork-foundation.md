@@ -532,15 +532,25 @@ Wave 3C exit evidence: all 137 Python contract tests, all 76 dependency-free Den
 
 ##### Wave 3D — Canvas parity and accessibility behavior
 
-- [ ] Make Canvas consume the same footprint records and shared non-square projection helper to draw the same forefoot/heel primitives; prove portrait/landscape/live-resize DOM parity without resampling.
-- [ ] Add the named `role="region"` and renderer-independent visually hidden semantic `role="list"`, with one item per accepted track, placed station, and valid configured region plus one combined source summary, capped at 705 in both modes; visual layers remain `aria-hidden` and expose no internal ID or coordinate.
-- [ ] Apply lifecycle shape/wording parity where Canvas text is shown and prove semantic-list parity across CSS↔Canvas switches.
-- [ ] Disable nonessential interpolation/pulse/fade behavior under reduced motion.
-- [ ] Add forced-colors/system-color rules without `forced-color-adjust: none`.
-- [ ] Scope read-only click/SVG/Canvas/dot/visual layers to `pointer-events: none` and `touch-action: auto`; prove no prevent-default/capture/editor/wheel interception and that a phone drag starting over the map scrolls the page.
-- [ ] Verify focus, 200% root-font and 320-CSS-pixel automated approximations, and no surrounding-page horizontal overflow.
+- [x] Make Canvas consume the same footprint records and shared non-square projection helper to draw the same forefoot/heel primitives; prove portrait/landscape/live-resize DOM parity without resampling.
+- [x] Add the named `role="region"` and renderer-independent visually hidden semantic `role="list"`, with one item per accepted track, placed station, and valid configured region plus one combined source summary, capped at 705 in both modes; visual layers remain `aria-hidden` and expose no internal ID or coordinate.
+- [x] Apply lifecycle shape/wording parity where Canvas text is shown and prove semantic-list parity across CSS↔Canvas switches.
+- [x] Disable nonessential interpolation/pulse/fade behavior under reduced motion.
+- [x] Add forced-colors/system-color rules without `forced-color-adjust: none`.
+- [x] Scope read-only click/SVG/Canvas/dot/visual layers to `pointer-events: none` and `touch-action: auto`; prove no prevent-default/capture/editor/wheel interception and that a phone drag starting over the map scrolls the page.
+- [x] Verify focus, 200% root-font and 320-CSS-pixel automated approximations, and no surrounding-page horizontal overflow.
 
 Exit: DOM/Canvas semantic and cleanup tests pass; reduced motion and forced colors remain truthful without color-only distinctions.
+
+Wave 3D exit evidence: all 137 Python contract tests, all 85 dependency-free Deno tests, and all 12 pinned-Chromium browser tests pass; the focused six-test accessibility/projection suite and `deno check` pass; `git diff --check` is clean. Exact CSS→Canvas→CSS projection is exercised at portrait, landscape, and square dimensions with immutable record identity/order and zero source/adapter/store resampling. Automated evidence also covers the presentation-derived 705-item semantic bound, all six lifecycle/position drawing grammars, wrapped labels and focus at 320 CSS px with a 200% root font, reduced motion, live forced-color redraws, native wheel/touch scrolling over footprints, delayed resume expiry, and teardown/remount listener cleanup. Four specialist reviews plus an independent final plan review approve the uncommitted Wave 3D diff with no P0–P3 finding. Native zoom, screenshot/golden, page-origin governance, and real assistive-technology evidence remain in Waves 3E–3F.
+
+##### Required correctness follow-up before Phase 3 exit
+
+Wave 3D review reproduced three pre-existing cross-layer defects that are deliberately isolated from the accepted accessibility/rendering diff. They block final Phase 3 acceptance until repaired and reviewed in a separate change:
+
+- [ ] Mirror the browser's six valid lifecycle/position pairs in Python presentation derivation and validation so Python cannot emit a snapshot the browser rejects.
+- [ ] Distinguish an exact duplicate snapshot from a changed same/lower-sequence conflict; clear only the affected sampling anchors on conflict so later observations cannot bridge stale movement.
+- [ ] Make `FakeHomeAssistantReplay.step()` at the final frame a no-op except for a bounded diagnostic, with unchanged emission, delivery, ingestion, and observation counters.
 
 ##### Wave 3E — Deterministic browser and screenshot evidence
 

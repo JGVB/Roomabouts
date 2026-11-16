@@ -1,3 +1,5 @@
+import { ROOMABOUTS_TRAIL_CONSTANTS } from './roomabouts-trails.js?v=1.5.0';
+
 export const ROOMABOUTS_FIELD_LEDGER_TOKENS = Object.freeze({
     surfacePaper: '#E7DDC5',
     surfacePaperDeep: '#D6C7A4',
@@ -30,6 +32,26 @@ export const ROOMABOUTS_FIELD_LEDGER_PROPERTIES = Object.freeze({
     '--roomabouts-focus': ROOMABOUTS_FIELD_LEDGER_TOKENS.focus,
     '--roomabouts-label-background': ROOMABOUTS_FIELD_LEDGER_TOKENS.labelBackground,
     '--roomabouts-label-text': ROOMABOUTS_FIELD_LEDGER_TOKENS.labelText,
+});
+
+const ROOMABOUTS_STEP_FOREFOOT = Object.freeze({
+    cornerRadiusPx: 0.7,
+    notchOuterXRatio: 0.42,
+    notchInnerXRatio: 0.34,
+    notchYRatio: 0.78,
+});
+
+export const ROOMABOUTS_STEP_GLYPH = Object.freeze({
+    widthPx: ROOMABOUTS_TRAIL_CONSTANTS.glyphWidthPx,
+    heightPx: ROOMABOUTS_TRAIL_CONSTANTS.glyphHeightPx,
+    forefootHeightPx: 8,
+    forefoot: ROOMABOUTS_STEP_FOREFOOT,
+    heelLeftPx: 1,
+    heelTopPx: 9,
+    heelWidthPx: 4,
+    heelHeightPx: 4,
+    heelCornerRadiusPx: 1,
+    forefootClipPath: `polygon(0 0, 100% 0, 100% 100%, ${ROOMABOUTS_STEP_FOREFOOT.notchOuterXRatio * 100}% 100%, ${ROOMABOUTS_STEP_FOREFOOT.notchInnerXRatio * 100}% ${ROOMABOUTS_STEP_FOREFOOT.notchYRatio * 100}%, 0 ${ROOMABOUTS_STEP_FOREFOOT.notchYRatio * 100}%)`,
 });
 
 const FIELD_LEDGER_PROPERTY_DECLARATIONS = Object.entries(ROOMABOUTS_FIELD_LEDGER_PROPERTIES)
@@ -134,12 +156,46 @@ ${FIELD_LEDGER_PROPERTY_DECLARATIONS}
     pointer-events: none;
 }
 
-.roomabouts-readonly .roomabouts-zone-label {
+.roomabouts-readonly .roomabouts-zone-label,
+.roomabouts-readonly .roomabouts-track-label,
+.roomabouts-readonly .roomabouts-station-label {
     position: absolute;
     box-sizing: border-box;
-    max-width: min(15rem, 50%, calc(100% - 1rem));
+    width: min(15rem, 60%, calc(100% - 0.5rem));
+    max-width: min(15rem, 60%, calc(100% - 0.5rem));
+    overflow: visible;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    transform: translate(var(--roomabouts-label-shift-x), var(--roomabouts-label-shift-y));
+    pointer-events: none;
+}
+
+.roomabouts-readonly [data-label-horizontal="start"] {
+    --roomabouts-label-shift-x: 0%;
+}
+
+.roomabouts-readonly [data-label-horizontal="center"] {
+    --roomabouts-label-shift-x: -50%;
+}
+
+.roomabouts-readonly [data-label-horizontal="end"] {
+    --roomabouts-label-shift-x: -100%;
+}
+
+.roomabouts-readonly [data-label-vertical="below"] {
+    --roomabouts-label-shift-y: 0%;
+    margin-top: var(--roomabouts-label-gap);
+}
+
+.roomabouts-readonly [data-label-vertical="above"] {
+    --roomabouts-label-shift-y: -100%;
+    margin-top: calc(0rem - var(--roomabouts-label-gap));
+}
+
+.roomabouts-readonly .roomabouts-zone-label {
+    --roomabouts-label-gap: 0.25rem;
+    max-width: min(15rem, 50%, calc(100% - 0.5rem));
     padding: 0.12rem 0.3rem;
-    overflow: hidden;
     color: var(--roomabouts-ink);
     background: var(--roomabouts-surface-paper);
     border: 1px solid color-mix(in srgb, var(--roomabouts-line-region) 45%, transparent);
@@ -148,10 +204,6 @@ ${FIELD_LEDGER_PROPERTY_DECLARATIONS}
     font-size: clamp(0.75rem, 0.68rem + 0.2vw, 0.95rem);
     font-weight: 500;
     line-height: 1.2;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
 }
 
 .roomabouts-readonly .roomabouts-track,
@@ -250,22 +302,14 @@ ${FIELD_LEDGER_PROPERTY_DECLARATIONS}
 
 .roomabouts-readonly .roomabouts-track-label,
 .roomabouts-readonly .roomabouts-station-label {
-    position: absolute;
-    left: 50%;
-    top: calc(100% + 5px);
-    max-width: min(15rem, 70vw);
+    --roomabouts-label-gap: calc(9px + 0.35rem);
     padding: 0.2rem 0.42rem;
-    overflow: hidden;
     color: var(--roomabouts-label-text);
     background: var(--roomabouts-label-background);
     border-radius: 2px;
     font-size: clamp(0.75rem, 0.55rem + 0.35vw, 1rem);
     font-weight: 500;
     line-height: 1.25;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    transform: translateX(-50%);
-    pointer-events: none;
 }
 
 .roomabouts-readonly .roomabouts-posture {
@@ -321,8 +365,8 @@ ${FIELD_LEDGER_PROPERTY_DECLARATIONS}
 
 .roomabouts-readonly .roomabouts-step {
     position: absolute;
-    width: 7px;
-    height: 13px;
+    width: ${ROOMABOUTS_STEP_GLYPH.widthPx}px;
+    height: ${ROOMABOUTS_STEP_GLYPH.heightPx}px;
     color: var(--roomabouts-state-observed);
     transform-origin: 50% 50%;
     pointer-events: none;
@@ -333,22 +377,22 @@ ${FIELD_LEDGER_PROPERTY_DECLARATIONS}
     position: absolute;
     top: 0;
     left: 0;
-    width: 7px;
-    height: 8px;
+    width: ${ROOMABOUTS_STEP_GLYPH.widthPx}px;
+    height: ${ROOMABOUTS_STEP_GLYPH.forefootHeightPx}px;
     background: currentColor;
-    border-radius: 55% 55% 42% 45%;
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 42% 100%, 34% 78%, 0 78%);
+    border-radius: ${ROOMABOUTS_STEP_GLYPH.forefoot.cornerRadiusPx}px;
+    clip-path: ${ROOMABOUTS_STEP_GLYPH.forefootClipPath};
 }
 
 .roomabouts-readonly .roomabouts-step::after {
     content: "";
     position: absolute;
-    bottom: 0;
-    left: 1px;
-    width: 4px;
-    height: 4px;
+    top: ${ROOMABOUTS_STEP_GLYPH.heelTopPx}px;
+    left: ${ROOMABOUTS_STEP_GLYPH.heelLeftPx}px;
+    width: ${ROOMABOUTS_STEP_GLYPH.heelWidthPx}px;
+    height: ${ROOMABOUTS_STEP_GLYPH.heelHeightPx}px;
     background: var(--roomabouts-ink);
-    border-radius: 1px;
+    border-radius: ${ROOMABOUTS_STEP_GLYPH.heelCornerRadiusPx}px;
 }
 
 .roomabouts-readonly .roomabouts-step[data-side="right"]::before {
@@ -356,7 +400,7 @@ ${FIELD_LEDGER_PROPERTY_DECLARATIONS}
 }
 
 .roomabouts-readonly .roomabouts-step[data-side="right"]::after {
-    right: 1px;
+    right: ${ROOMABOUTS_STEP_GLYPH.heelLeftPx}px;
     left: auto;
 }
 
@@ -384,9 +428,21 @@ ${FIELD_LEDGER_PROPERTY_DECLARATIONS}
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .roomabouts-readonly .roomabouts-visual-layer,
+    .roomabouts-readonly .roomabouts-zone,
+    .roomabouts-readonly .roomabouts-zone-label,
+    .roomabouts-readonly .roomabouts-track-label,
+    .roomabouts-readonly .roomabouts-station-label,
+    .roomabouts-readonly .roomabouts-posture,
     .roomabouts-readonly .roomabouts-track,
+    .roomabouts-readonly .roomabouts-track::before,
+    .roomabouts-readonly .roomabouts-track::after,
     .roomabouts-readonly .roomabouts-step,
-    .roomabouts-readonly .roomabouts-station {
+    .roomabouts-readonly .roomabouts-step::before,
+    .roomabouts-readonly .roomabouts-step::after,
+    .roomabouts-readonly .roomabouts-station,
+    .roomabouts-readonly .roomabouts-station::before,
+    .roomabouts-readonly .roomabouts-station::after {
         animation: none;
         transition: none;
     }
@@ -394,6 +450,20 @@ ${FIELD_LEDGER_PROPERTY_DECLARATIONS}
 
 @media (forced-colors: active) {
     .roomabouts-readonly {
+        --roomabouts-surface-paper: Canvas;
+        --roomabouts-surface-paper-deep: GrayText;
+        --roomabouts-ink: CanvasText;
+        --roomabouts-ink-muted: GrayText;
+        --roomabouts-line-region: CanvasText;
+        --roomabouts-line-grid: GrayText;
+        --roomabouts-state-observed: Highlight;
+        --roomabouts-state-held: CanvasText;
+        --roomabouts-state-last-seen: GrayText;
+        --roomabouts-state-offline: GrayText;
+        --roomabouts-state-attention: Highlight;
+        --roomabouts-focus: Highlight;
+        --roomabouts-label-background: Highlight;
+        --roomabouts-label-text: HighlightText;
         color: CanvasText;
         background: Canvas;
         border-color: GrayText;
@@ -409,15 +479,29 @@ ${FIELD_LEDGER_PROPERTY_DECLARATIONS}
         border-color: CanvasText;
     }
 
+    .roomabouts-readonly .roomabouts-step {
+        color: var(--roomabouts-state-observed);
+    }
+
+    .roomabouts-readonly .roomabouts-step::before {
+        background: var(--roomabouts-state-observed);
+    }
+
+    .roomabouts-readonly .roomabouts-step::after {
+        background: var(--roomabouts-ink);
+    }
+
     .roomabouts-readonly .roomabouts-track-label,
     .roomabouts-readonly .roomabouts-station-label,
-    .roomabouts-readonly .roomabouts-zone-label {
+    .roomabouts-readonly .roomabouts-zone-label,
+    .roomabouts-readonly .roomabouts-posture {
         color: HighlightText;
         background: Highlight;
         border-color: CanvasText;
     }
 
     .roomabouts-readonly :focus-visible {
+        border: 2px solid Canvas;
         box-shadow: 0 0 0 2px Canvas;
         outline-color: Highlight;
     }

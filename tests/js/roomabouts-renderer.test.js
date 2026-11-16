@@ -2,9 +2,12 @@ import {
     ROOMABOUTS_SEMANTIC_LIMIT,
     RadarRenderer,
     buildRoomaboutsRenderScene,
+    classifyRoomaboutsLabelPlacement,
     classifyRoomaboutsRegion,
     classifyRoomaboutsTrack,
+    resolveRoomaboutsCanvasPalette,
 } from '../../custom_components/radar_map_manager/www/radar-renderer.js';
+import { ROOMABOUTS_PRESENTATION_LIMITS } from '../../custom_components/radar_map_manager/www/roomabouts-presentation.js';
 
 const assert = (condition, message) => {
     if (!condition) throw new Error(message);
@@ -230,38 +233,46 @@ Deno.test('regions preserve hostile names as literal semantic text without inter
     );
 });
 
-Deno.test('semantic ordering and exact 705-item bound are deterministic', () => {
-    assertEquals(ROOMABOUTS_SEMANTIC_LIMIT, 705, 'frozen semantic maximum');
+Deno.test('semantic ordering and presentation-derived item bound are deterministic', () => {
     const zones = makeZoneGroups();
+    const regionCount = Object.keys(zones).length * ROOMABOUTS_PRESENTATION_LIMITS.maxZonesPerKind;
+    const semanticLimit = regionCount
+        + ROOMABOUTS_PRESENTATION_LIMITS.maxRadars
+        + ROOMABOUTS_PRESENTATION_LIMITS.maxTracks
+        + 1;
+    assertEquals(ROOMABOUTS_SEMANTIC_LIMIT, semanticLimit, 'semantic maximum derives from presentation limits');
     for (const group of Object.keys(zones)) {
-        for (let index = 0; index < 128; index += 1) {
+        for (let index = 0; index < ROOMABOUTS_PRESENTATION_LIMITS.maxZonesPerKind; index += 1) {
             zones[group].push({
                 name: `${group}-${index}`,
                 points: [[10, 10], [20, 10], [20, 20], [10, 20]],
             });
         }
     }
-    const radars = Array.from({ length: 64 }, (_, index) => ({
+    const radars = Array.from({ length: ROOMABOUTS_PRESENTATION_LIMITS.maxRadars }, (_, index) => ({
         sensorId: `source-${index}`,
         paused: false,
         layout: { origin_x: index, origin_y: 50 },
     }));
-    const sourceHealth = Array.from({ length: 63 }, (_, index) => ({
+    const sourceHealth = Array.from({ length: ROOMABOUTS_PRESENTATION_LIMITS.maxSources - 1 }, (_, index) => ({
         sensorId: `source-${index}`,
         status: 'online',
         reason: 'available',
     }));
     sourceHealth.push({ sensorId: 'source-unmatched', status: 'offline', reason: 'unavailable' });
-    const tracks = Array.from({ length: 128 }, (_, index) => makeTrack('confirmed', 'observed', {
+    const tracks = Array.from({ length: ROOMABOUTS_PRESENTATION_LIMITS.maxTracks }, (_, index) => makeTrack('confirmed', 'observed', {
         trackId: `track-${index}`,
         anonymousAlias: `Wayfarer-${String(index).padStart(6, '0')}`,
     }));
     const scene = buildRoomaboutsRenderScene(makePresentation({ zones, radars, tracks, sourceHealth }));
-    assertEquals(scene.semanticItems.length, 705, 'exact semantic maximum');
+    assertEquals(scene.semanticItems.length, semanticLimit, 'exact semantic maximum');
     assert(scene.semanticItems[0].startsWith('Included region'), 'regions are first');
-    assert(scene.semanticItems[512].startsWith('Station 1'), 'stations follow regions');
-    assert(scene.semanticItems[576].startsWith('Wayfarer-'), 'tracks follow stations');
-    assert(scene.semanticItems[704].startsWith('Unmatched source health'), 'summary is last');
+    assert(scene.semanticItems[regionCount].startsWith('Station 1'), 'stations follow regions');
+    assert(
+        scene.semanticItems[regionCount + ROOMABOUTS_PRESENTATION_LIMITS.maxRadars].startsWith('Wayfarer-'),
+        'tracks follow stations',
+    );
+    assert(scene.semanticItems[semanticLimit - 1].startsWith('Unmatched source health'), 'summary is last');
 
     const tooMany = makePresentation({ zones, radars, sourceHealth, tracks: [...tracks, makeTrack('confirmed', 'observed', {
         trackId: 'track-overflow',
@@ -462,6 +473,141 @@ Deno.test('renderer owns safe dedicated layers and synchronizes semantics only o
     assert(semantic.children.every((item, index) => item === originalItems[index]), 'trail refresh does not rebuild semantics');
 });
 
+Deno.test('coordinate-only acceptance preserves semantic list-item node identity', () => {
+    const harness = makeDomHarness();
+    const renderer = new RadarRenderer({}, harness.root, {
+        setTimeout: () => 1,
+        clearTimeout: () => {},
+    });
+    assert(renderer.acceptRoomaboutsPresentation(makePresentation({
+        tracks: [makeTrack('confirmed', 'observed')],
+    })), 'first scene accepted');
+    const semantic = harness.root.getElementById('roomabouts-semantic-layer');
+    const originalItems = [...semantic.children];
+
+    assert(renderer.acceptRoomaboutsPresentation(makePresentation({
+        tracks: [makeTrack('confirmed', 'observed', {
+            position: { x: 73, y: 19, coordinateSpace: 'map-layout' },
+        })],
+    })), 'coordinate-only scene accepted');
+    assertEquals(
+        semantic.children.map((item) => item.textContent),
+        originalItems.map((item) => item.textContent),
+        'semantic text',
+    );
+    assert(semantic.children.every((item, index) => item === originalItems[index]), 'unchanged semantic nodes are reused');
+});
+
+Deno.test('renderer preserves complete frozen trail record objects and input order', () => {
+    const harness = makeDomHarness();
+    const renderer = new RadarRenderer({}, harness.root, {
+        setTimeout: () => 1,
+        clearTimeout: () => {},
+    });
+    const laterOrdinal = Object.freeze({
+        ownerId: 'owner-private-b', x: 9, y: 8, rotationDeg: 7, side: 'right',
+        createdAtMs: 200, expiresAtMs: 6200, ordinal: 11,
+    });
+    const earlierOrdinal = Object.freeze({
+        ownerId: 'owner-private-a', x: 1, y: 2, rotationDeg: 3, side: 'left',
+        createdAtMs: 100, expiresAtMs: 6100, ordinal: 4,
+    });
+    const sourceRecords = Object.freeze([laterOrdinal, earlierOrdinal]);
+    assert(renderer.setRoomaboutsTrailRecords(sourceRecords), 'records accepted');
+    assert(Object.isFrozen(renderer._roomaboutsTrailRecords), 'renderer record list is frozen');
+    assert(renderer._roomaboutsTrailRecords !== sourceRecords, 'renderer owns a detached record list');
+    assert(renderer._roomaboutsTrailRecords[0] === laterOrdinal, 'first full record identity is preserved');
+    assert(renderer._roomaboutsTrailRecords[1] === earlierOrdinal, 'second full record identity is preserved');
+    assertEquals(Object.keys(renderer._roomaboutsTrailRecords[0]), [
+        'ownerId', 'x', 'y', 'rotationDeg', 'side', 'createdAtMs', 'expiresAtMs', 'ordinal',
+    ], 'all private ordering metadata remains internal');
+    assertEquals(renderer._roomaboutsTrailRecords.map((record) => ({
+        ownerId: record.ownerId,
+        createdAtMs: record.createdAtMs,
+        expiresAtMs: record.expiresAtMs,
+        ordinal: record.ordinal,
+    })), [
+        { ownerId: 'owner-private-b', createdAtMs: 200, expiresAtMs: 6200, ordinal: 11 },
+        { ownerId: 'owner-private-a', createdAtMs: 100, expiresAtMs: 6100, ordinal: 4 },
+    ], 'private metadata and caller order are preserved exactly');
+    assert(!treeContainsLiteral(harness.rootElement, 'owner-private'), 'private metadata is not exposed in DOM');
+
+    assert(!renderer.setRoomaboutsTrailRecords([{
+        x: 1, y: 2, rotationDeg: 3, side: 'left',
+    }]), 'partial mutable records fail closed');
+    assertEquals(renderer._roomaboutsTrailRecords, [], 'invalid records clear the cache');
+});
+
+Deno.test('label placement is deterministic, edge-aware, and shared by every visual label kind', () => {
+    const cases = [
+        [0, 0, 'track', ['start', 'below']],
+        [50, 49.999, 'station', ['center', 'below']],
+        [50, 50, 'station', ['center', 'above']],
+        [100, 100, 'region', ['end', 'above']],
+        [69.999, 49.999, 'track', ['center', 'below']],
+        [70, 70, 'track', ['end', 'above']],
+    ];
+    for (const [x, y, kind, expected] of cases) {
+        const placement = classifyRoomaboutsLabelPlacement(x, y, kind);
+        assertEquals([placement.horizontal, placement.vertical], expected, `${kind} ${x},${y}`);
+        assert(Object.isFrozen(placement), 'placement is immutable');
+    }
+    assertEquals(classifyRoomaboutsLabelPlacement(-1, 50, 'track'), null, 'off-field labels fail closed');
+    assertEquals(classifyRoomaboutsLabelPlacement(50, 50, 'unknown'), null, 'unknown label kind fails closed');
+});
+
+Deno.test('Canvas palette resolves active CSS properties with frozen fallbacks', () => {
+    const values = new Map([
+        ['--roomabouts-ink', ' CanvasText '],
+        ['--roomabouts-state-observed', 'Highlight'],
+        ['--roomabouts-state-last-seen', 'GrayText'],
+    ]);
+    const palette = resolveRoomaboutsCanvasPalette((name) => values.get(name) || '');
+    assertEquals(palette.ink, 'CanvasText', 'computed ink');
+    assertEquals(palette.stateObserved, 'Highlight', 'computed observed state');
+    assertEquals(palette.stateLastSeen, 'GrayText', 'computed last-seen state');
+    assertEquals(palette.stateHeld, '#745B17', 'missing property fallback');
+    assert(Object.isFrozen(palette), 'palette is immutable');
+});
+
+Deno.test('one active CSS palette is shared by every Canvas primitive in a frame', () => {
+    const harness = makeDomHarness();
+    const renderer = new RadarRenderer({}, harness.root, {
+        setTimeout: () => 1,
+        clearTimeout: () => {},
+    });
+    renderer.canvas = harness.canvas;
+    renderer.ctx = harness.canvas.getContext('2d');
+    renderer._roomaboutsScene = buildRoomaboutsRenderScene(makePresentation({
+        tracks: [makeTrack('confirmed', 'observed')],
+    }));
+    renderer.setRoomaboutsTrailRecords([Object.freeze({
+        ownerId: 'owner-private', x: 40, y: 50, rotationDeg: 90, side: 'left',
+        createdAtMs: 0, expiresAtMs: 6000, ordinal: 0,
+    })]);
+    let paletteReads = 0;
+    renderer._roomaboutsCanvasPalette = () => {
+        paletteReads += 1;
+        return Object.freeze({
+            ink: 'CanvasText',
+            inkMuted: 'GrayText',
+            stateObserved: 'Highlight',
+            stateHeld: 'CanvasText',
+            stateLastSeen: 'GrayText',
+            stateOffline: 'GrayText',
+            stateAttention: 'Highlight',
+        });
+    };
+    assert(renderer._renderRoomaboutsCanvas(), 'Canvas frame renders');
+    assertEquals(paletteReads, 1, 'computed palette is resolved once per frame');
+    assert(harness.contextCalls.some((call) => (
+        JSON.stringify(call) === JSON.stringify(['set:strokeStyle', 'Highlight'])
+    )), 'track uses the active observed color');
+    assert(harness.contextCalls.some((call) => (
+        JSON.stringify(call) === JSON.stringify(['set:fillStyle', 'CanvasText'])
+    )), 'footprint heel uses the active ink color');
+});
+
 Deno.test('Field Ledger draw bypasses inherited renderer paths in CSS and Canvas modes', () => {
     const harness = makeDomHarness();
     const renderer = new RadarRenderer({}, harness.root, {
@@ -505,7 +651,9 @@ Deno.test('Field Ledger draw bypasses inherited renderer paths in CSS and Canvas
     assert(!visual.children.some((child) => child.className === 'roomabouts-track'), 'Canvas has no DOM track duplicate');
     assert(!visual.children.some((child) => child.className === 'roomabouts-step'), 'Canvas has no DOM step duplicate');
     assert(visual.children.some((child) => child.className === 'roomabouts-station'), 'station remains visible');
+    assert(visual.children.some((child) => child.className === 'roomabouts-track-label'), 'Canvas shares the DOM track label overlay');
     assert(harness.contextCalls.some(([name]) => name === 'arc' || name === 'ellipse'), 'Canvas primitives drawn');
+    assert(!harness.contextCalls.some(([name]) => name === 'fillText'), 'Canvas never paints fixed-pixel text');
 
     harness.contextCalls.length = 0;
     renderer._drawRoomaboutsCanvasStep(renderer.ctx, {
@@ -513,7 +661,17 @@ Deno.test('Field Ledger draw bypasses inherited renderer paths in CSS and Canvas
     }, 400, 200);
     const leftCalls = [...harness.contextCalls];
     assert(leftCalls.some((call) => JSON.stringify(call) === JSON.stringify(['translate', -3.5, -6.5])), '13px footprint is centered');
-    assert(leftCalls.some((call) => JSON.stringify(call) === JSON.stringify(['fillRect', 1, 9, 4, 4])), 'heel is offset and four pixels tall');
+    const heelGrammar = [
+        ['beginPath'],
+        ['roundRect', 1, 9, 4, 4, 1],
+        ['fill'],
+    ];
+    assert(
+        leftCalls.some((_, start) => JSON.stringify(leftCalls.slice(start, start + heelGrammar.length))
+            === JSON.stringify(heelGrammar)),
+        'heel uses the descriptor exact 4 by 4 rounded path',
+    );
+    assert(!leftCalls.some(([name]) => name === 'fillRect'), 'Canvas heel cannot drift to a square fillRect');
     assert(leftCalls.some(([name]) => name === 'lineTo'), 'forefoot has a notched polygon');
     assert(!leftCalls.some(([name]) => name === 'ellipse'), 'forefoot is not a symmetric ellipse');
 
@@ -525,6 +683,121 @@ Deno.test('Field Ledger draw bypasses inherited renderer paths in CSS and Canvas
         harness.contextCalls.some((call) => JSON.stringify(call) === JSON.stringify(['scale', -1, 1])),
         'right footprint mirrors the asymmetric notch and heel',
     );
+});
+
+Deno.test('all six Canvas lifecycle pairs use the exact non-color drawing grammar', () => {
+    const harness = makeDomHarness();
+    const renderer = new RadarRenderer({}, harness.root, {
+        setTimeout: () => 1,
+        clearTimeout: () => {},
+    });
+    const ctx = harness.canvas.getContext('2d');
+    const circle = (x, y, radius) => ['arc', x, y, radius, 0, Math.PI * 2];
+    const cases = [
+        {
+            name: 'confirmed/observed continuous ring with center fill',
+            lifecycle: 'confirmed',
+            positionBasis: 'observed',
+            expected: [
+                ['setLineDash', []],
+                ['beginPath'], circle(0, 0, 9), ['stroke'],
+                ['beginPath'], circle(0, 0, 3), ['fill'],
+                ['setLineDash', []],
+            ],
+        },
+        {
+            name: 'tentative/observed dotted double ring',
+            lifecycle: 'tentative',
+            positionBasis: 'observed',
+            expected: [
+                ['setLineDash', [1.5, 3]],
+                ['beginPath'], circle(0, 0, 9), ['stroke'],
+                ['beginPath'], circle(0, 0, 12), ['stroke'],
+                ['setLineDash', []],
+            ],
+        },
+        {
+            name: 'confirmed/interpolated dotted hollow ring',
+            lifecycle: 'confirmed',
+            positionBasis: 'interpolated',
+            expected: [
+                ['setLineDash', [2, 3]],
+                ['beginPath'], circle(0, 0, 9), ['stroke'],
+                ['setLineDash', []],
+            ],
+        },
+        {
+            name: 'coasting/held dashed hollow ring',
+            lifecycle: 'coasting',
+            positionBasis: 'held',
+            expected: [
+                ['setLineDash', [5, 3]],
+                ['beginPath'], circle(0, 0, 9), ['stroke'],
+                ['setLineDash', []],
+            ],
+        },
+        {
+            name: 'coasting/interpolated alternating dash with two auxiliary marks',
+            lifecycle: 'coasting',
+            positionBasis: 'interpolated',
+            expected: [
+                ['setLineDash', [6, 3, 1.5, 3]],
+                ['beginPath'], circle(0, 0, 9), ['stroke'],
+                ['setLineDash', []],
+                ['beginPath'], circle(0, -9, 1.7), circle(0, 9, 1.7), ['fill'],
+                ['setLineDash', []],
+            ],
+        },
+        {
+            name: 'fading/last-seen dashed ring with last-seen tick',
+            lifecycle: 'fading',
+            positionBasis: 'last-seen',
+            expected: [
+                ['setLineDash', [5, 3]],
+                ['beginPath'], circle(0, 0, 9), ['stroke'],
+                ['setLineDash', []],
+                ['beginPath'], ['moveTo', 0, -14], ['lineTo', 0, -9], ['stroke'],
+                ['setLineDash', []],
+            ],
+        },
+    ];
+    for (const { name, lifecycle, positionBasis, expected } of cases) {
+        harness.contextCalls.length = 0;
+        renderer._drawRoomaboutsCanvasTrack(ctx, {
+            x: 50,
+            y: 50,
+            lifecycle,
+            positionBasis,
+            outsideField: false,
+        }, 400, 200, Object.freeze({
+            ink: 'same', inkMuted: 'same', stateObserved: 'same', stateHeld: 'same',
+            stateLastSeen: 'same', stateOffline: 'same', stateAttention: 'same',
+        }));
+        const geometry = harness.contextCalls.filter(([name]) => [
+            'setLineDash', 'beginPath', 'arc', 'moveTo', 'lineTo', 'stroke', 'fill',
+        ].includes(name));
+        assertEquals(geometry, expected, name);
+    }
+});
+
+Deno.test('Roomabouts animation loop requests a coordinator redraw without repainting cached footprints', () => {
+    const harness = makeDomHarness();
+    let coordinatorRequests = 0;
+    let cachedPaints = 0;
+    const renderer = new RadarRenderer({}, harness.root, {
+        setTimeout: () => 1,
+        clearTimeout: () => {},
+        requestRoomaboutsRedraw: () => { coordinatorRequests += 1; },
+    });
+    renderer.canvas = harness.canvas;
+    renderer.ctx = harness.canvas.getContext('2d');
+    renderer._roomaboutsActive = true;
+    renderer._roomaboutsCanvasMode = true;
+    renderer._renderRoomaboutsCanvas = () => { cachedPaints += 1; };
+    renderer.renderLoop();
+    assertEquals(coordinatorRequests, 1, 'card coordinator is asked to run visible()');
+    assertEquals(cachedPaints, 0, 'cached Roomabouts footprints are not repainted');
+    assertEquals(renderer.animFrameId, null, 'animation frame is retired');
 });
 
 Deno.test('renderer cleanup removes every Roomabouts visual, semantic, and cached coordinate', () => {

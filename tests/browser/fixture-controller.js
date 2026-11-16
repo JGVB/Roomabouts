@@ -4,6 +4,7 @@ import {
     disconnectReplayAndNotifyCard,
 } from './fake-hass.js';
 import { SYNTHETIC_SCENARIOS } from './fixtures/synthetic-scenarios.js';
+import { RoomaboutsTrailStore } from '../../custom_components/radar_map_manager/www/roomabouts-trails.js';
 
 const elements = {
     cardHost: document.getElementById('card-host'),
@@ -29,6 +30,40 @@ export const DEFAULT_CARD_CONFIG = Object.freeze({
 
 let card = null;
 const localDiagnostics = [];
+const sourceCounters = {
+    subscriptions: 0,
+    unsubscriptions: 0,
+    emissions: 0,
+    deliveries: 0,
+};
+const cardInstrumentation = new WeakMap();
+const presentationClock = {
+    nowMs: 1000,
+    nextTimerId: 1,
+    timers: new Map(),
+    now() {
+        return this.nowMs;
+    },
+    setTimeout(callback, delayMs) {
+        const id = this.nextTimerId;
+        this.nextTimerId += 1;
+        this.timers.set(id, {
+            callback,
+            dueAt: this.nowMs + Math.max(0, Number.isFinite(delayMs) ? delayMs : 0),
+        });
+        return id;
+    },
+    clearTimeout(id) {
+        this.timers.delete(id);
+    },
+    elapseBy(deltaMs) {
+        if (!Number.isFinite(deltaMs) || deltaMs < 0) {
+            throw new TypeError('Presentation clock delta must be finite and non-negative');
+        }
+        this.nowMs += deltaMs;
+        return this.nowMs;
+    },
+};
 
 function boundedMessage(value) {
     return String(value || 'unknown').replace(/[\r\n]+/g, ' ').slice(0, 160);
@@ -70,7 +105,15 @@ function renderState(state = replay.state) {
 const replay = createFakeHomeAssistantReplay({
     scenarios: SYNTHETIC_SCENARIOS,
     onStateChange: (state) => renderState(state),
-    onDiagnostic: () => renderDiagnostics(),
+    onDiagnostic: (entry) => {
+        if (entry.event === 'subscribed') sourceCounters.subscriptions += 1;
+        if (entry.event === 'unsubscribed') sourceCounters.unsubscriptions += 1;
+        if (entry.event === 'snapshot-emitted') {
+            sourceCounters.emissions += 1;
+            sourceCounters.deliveries += entry.subscriberCount;
+        }
+        renderDiagnostics();
+    },
 });
 
 function populateControls() {
@@ -84,8 +127,74 @@ function populateControls() {
     elements.speed.value = String(replay.state.speed);
 }
 
+function instrumentCard(nextCard, store) {
+    const counters = {
+        adapterDisconnect: 0,
+        adapterIngest: 0,
+        adapterReset: 0,
+        canvasSteps: 0,
+        draw: 0,
+        mediaHandler: 0,
+        pageshowHandler: 0,
+        queue: 0,
+        storeDestroy: 0,
+        storeExpire: 0,
+        storeObserve: 0,
+        storeReset: 0,
+        storeVisible: 0,
+        visibilityHandler: 0,
+    };
+    const wrap = (owner, method, counter) => {
+        const original = owner[method].bind(owner);
+        owner[method] = (...args) => {
+            counters[counter] += 1;
+            return original(...args);
+        };
+    };
+    wrap(nextCard.presentationAdapter, 'disconnect', 'adapterDisconnect');
+    wrap(nextCard.presentationAdapter, 'ingest', 'adapterIngest');
+    wrap(nextCard.presentationAdapter, 'reset', 'adapterReset');
+    wrap(store, 'destroy', 'storeDestroy');
+    wrap(store, 'expire', 'storeExpire');
+    wrap(store, 'observeAccepted', 'storeObserve');
+    wrap(store, 'reset', 'storeReset');
+    wrap(store, 'visible', 'storeVisible');
+    wrap(nextCard, '_drawCurrentView', 'draw');
+    wrap(nextCard, '_queueRender', 'queue');
+    const originalCanvasStep = nextCard.renderer._drawRoomaboutsCanvasStep.bind(nextCard.renderer);
+    nextCard.renderer._drawRoomaboutsCanvasStep = (...args) => {
+        counters.canvasSteps += 1;
+        return originalCanvasStep(...args);
+    };
+    const originalVisibility = nextCard._boundRoomaboutsVisibilityChange;
+    const originalPageShow = nextCard._boundRoomaboutsPageShow;
+    const originalMedia = nextCard._boundRoomaboutsMediaChange;
+    nextCard._boundRoomaboutsVisibilityChange = (...args) => {
+        counters.visibilityHandler += 1;
+        return originalVisibility(...args);
+    };
+    nextCard._boundRoomaboutsPageShow = (...args) => {
+        counters.pageshowHandler += 1;
+        return originalPageShow(...args);
+    };
+    nextCard._boundRoomaboutsMediaChange = (...args) => {
+        counters.mediaHandler += 1;
+        return originalMedia(...args);
+    };
+    cardInstrumentation.set(nextCard, { counters, store });
+}
+
 function createCard(config = DEFAULT_CARD_CONFIG) {
     const nextCard = document.createElement('radar-map-card');
+    nextCard._roomaboutsTrailStore.destroy();
+    const store = new RoomaboutsTrailStore({
+        clock: () => presentationClock.now(),
+        setTimeout: (callback, delayMs) => presentationClock.setTimeout(callback, delayMs),
+        clearTimeout: (id) => presentationClock.clearTimeout(id),
+        onChange: () => nextCard._handleRoomaboutsTrailStoreChange(),
+    });
+    nextCard._roomaboutsTrailStore = store;
+    instrumentCard(nextCard, store);
     nextCard.setConfig(config);
     nextCard.hass = replay.hass;
     return nextCard;
@@ -95,22 +204,54 @@ function animationFrame() {
     return new Promise((resolve) => requestAnimationFrame(resolve));
 }
 
-async function waitForStable() {
+function cardStats(target = card) {
+    const entry = target ? cardInstrumentation.get(target) : null;
+    if (!entry) return null;
+    return Object.freeze({
+        counters: Object.freeze({ ...entry.counters }),
+        store: entry.store.stats(),
+    });
+}
+
+function sourceStats() {
+    return Object.freeze({ ...sourceCounters });
+}
+
+function clockStats() {
+    return Object.freeze({
+        nowMs: presentationClock.now(),
+        pendingCount: presentationClock.timers.size,
+    });
+}
+
+async function waitForStable(afterDraw = null) {
     await document.fonts.ready;
     await Promise.resolve();
-    await animationFrame();
-    await animationFrame();
     const expectedSubscribers = replay.state.connected ? 1 : 0;
     if (!card?.isConnected) throw new Error('Synthetic card is not mounted');
-    if (replay.state.subscriberCount !== expectedSubscribers) {
-        throw new Error('Synthetic subscriber did not reach its bounded ready state');
+    const baseline = afterDraw ?? cardStats(card).counters.draw;
+    const requestRender = afterDraw === null;
+    if (requestRender && card._renderFrameId === null) card._queueRender();
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+        await animationFrame();
+        const stats = cardStats(card);
+        if (stats.counters.draw > baseline
+            && card._renderFrameId === null
+            && card.isRendering === false
+            && replay.state.subscriberCount === expectedSubscribers) {
+            return Object.freeze({
+                connected: replay.state.connected,
+                draw: stats.counters.draw,
+                frameIndex: replay.state.frameIndex,
+                scenarioId: replay.state.scenarioId,
+                subscriberCount: replay.state.subscriberCount,
+            });
+        }
+        if (requestRender
+            && card._renderFrameId === null
+            && stats.counters.draw <= baseline) card._queueRender();
     }
-    return Object.freeze({
-        connected: replay.state.connected,
-        frameIndex: replay.state.frameIndex,
-        scenarioId: replay.state.scenarioId,
-        subscriberCount: replay.state.subscriberCount,
-    });
+    throw new Error('Synthetic card did not reach a bounded render revision');
 }
 
 async function mountCard(config = DEFAULT_CARD_CONFIG) {
@@ -124,48 +265,55 @@ async function mountCard(config = DEFAULT_CARD_CONFIG) {
         }
     }
     card = createCard(config);
+    const draw = cardStats(card).counters.draw;
     elements.cardHost.replaceChildren(card);
     renderState();
-    return waitForStable();
+    return waitForStable(draw);
 }
 
 async function selectScenario(scenarioId, frameIndex = 0) {
     if (!Number.isInteger(frameIndex) || frameIndex < 0) {
         throw new TypeError('Synthetic frame index must be a non-negative integer');
     }
+    const draw = cardStats(card).counters.draw;
     let nextHass = replay.selectScenario(scenarioId);
     if (frameIndex > 0) nextHass = replay.seek(frameIndex);
     card.hass = nextHass;
     elements.scenario.value = scenarioId;
-    return waitForStable();
+    return waitForStable(draw);
 }
 
 async function seek(frameIndex) {
+    const draw = cardStats(card).counters.draw;
     card.hass = replay.seek(frameIndex);
-    return waitForStable();
+    return waitForStable(draw);
 }
 
 async function step(delta = 1) {
+    const draw = cardStats(card).counters.draw;
     replay.step(delta);
-    return waitForStable();
+    return waitForStable(draw);
 }
 
 async function setRenderMode(mode) {
     if (mode !== 'css' && mode !== 'canvas') {
         throw new TypeError('Synthetic render mode must be css or canvas');
     }
+    const draw = cardStats(card).counters.draw;
     card.setConfig({ ...DEFAULT_CARD_CONFIG, target_render_mode: mode });
-    return waitForStable();
+    return waitForStable(draw);
 }
 
 async function disconnect() {
+    const draw = cardStats(card).counters.draw;
     disconnectReplayAndNotifyCard(card, replay);
-    return waitForStable();
+    return waitForStable(draw);
 }
 
 async function reconnect() {
+    const draw = cardStats(card).counters.draw;
     card.hass = replay.reconnect();
-    return waitForStable();
+    return waitForStable(draw);
 }
 
 function runControl(action) {
@@ -220,12 +368,16 @@ window.roomaboutsFixture = Object.freeze({
     get card() {
         return card;
     },
+    cardStats,
+    clockStats,
     disconnect,
+    elapsePresentationClock: (deltaMs) => presentationClock.elapseBy(deltaMs),
     mountCard,
     reconnect,
     seek,
     selectScenario,
     setRenderMode,
+    sourceStats,
     step,
     waitForStable,
 });

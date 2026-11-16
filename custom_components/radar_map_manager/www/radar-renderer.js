@@ -1,10 +1,12 @@
 import { TargetFilter } from './radar-math.js?v=1.5.0';
-import { ROOMABOUTS_FIELD_LEDGER_TOKENS } from './roomabouts-theme.js?v=1.5.0';
+import {
+    ROOMABOUTS_FIELD_LEDGER_TOKENS,
+    ROOMABOUTS_STEP_GLYPH,
+} from './roomabouts-theme.js?v=1.5.0';
+import { ROOMABOUTS_PRESENTATION_LIMITS } from './roomabouts-presentation.js?v=1.5.0';
 import { projectRoomaboutsStep } from './roomabouts-trails.js?v=1.5.0';
 
 const MAX_DOM_TRAILS = 96;
-
-export const ROOMABOUTS_SEMANTIC_LIMIT = 705;
 
 const ROOMABOUTS_SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const ROOMABOUTS_EMPTY_RECORDS = Object.freeze([]);
@@ -27,14 +29,30 @@ const ROOMABOUTS_REGION_GROUPS = Object.freeze([
     Object.freeze(['entrance_zones', 'entrance', 'Entrance region']),
     Object.freeze(['stationary_zones', 'stationary', 'Stationary region']),
 ]);
+export const ROOMABOUTS_SEMANTIC_LIMIT = (
+    ROOMABOUTS_REGION_GROUPS.length * ROOMABOUTS_PRESENTATION_LIMITS.maxZonesPerKind
+    + ROOMABOUTS_PRESENTATION_LIMITS.maxRadars
+    + ROOMABOUTS_PRESENTATION_LIMITS.maxTracks
+    + 1
+);
 const ROOMABOUTS_SOURCE_STATES = new Set(['online', 'degraded', 'offline', 'unknown']);
 const ROOMABOUTS_SOURCE_STATE_RANK = Object.freeze({ unknown: 0, online: 1, degraded: 2, offline: 3 });
 const ROOMABOUTS_RENDER_LIMITS = Object.freeze({
-    zonesPerKind: 128,
-    radars: 64,
-    tracks: 128,
-    sourceHealth: 64,
+    zonesPerKind: ROOMABOUTS_PRESENTATION_LIMITS.maxZonesPerKind,
+    radars: ROOMABOUTS_PRESENTATION_LIMITS.maxRadars,
+    tracks: ROOMABOUTS_PRESENTATION_LIMITS.maxTracks,
+    sourceHealth: ROOMABOUTS_PRESENTATION_LIMITS.maxSources,
     uncertaintyReasons: 16,
+});
+const ROOMABOUTS_LABEL_KINDS = new Set(['region', 'station', 'track']);
+const ROOMABOUTS_CANVAS_PALETTE_PROPERTIES = Object.freeze({
+    ink: Object.freeze(['--roomabouts-ink', 'ink']),
+    inkMuted: Object.freeze(['--roomabouts-ink-muted', 'inkMuted']),
+    stateObserved: Object.freeze(['--roomabouts-state-observed', 'stateObserved']),
+    stateHeld: Object.freeze(['--roomabouts-state-held', 'stateHeld']),
+    stateLastSeen: Object.freeze(['--roomabouts-state-last-seen', 'stateLastSeen']),
+    stateOffline: Object.freeze(['--roomabouts-state-offline', 'stateOffline']),
+    stateAttention: Object.freeze(['--roomabouts-state-attention', 'stateAttention']),
 });
 
 const roomaboutsFinite = (value) => typeof value === 'number' && Number.isFinite(value);
@@ -59,6 +77,34 @@ const roomaboutsFreezePoint = (point) => Object.freeze([
 ]);
 const roomaboutsFreezePoints = (points) => Object.freeze(points.map(roomaboutsFreezePoint));
 const roomaboutsInField = (x, y) => x >= 0 && x <= 100 && y >= 0 && y <= 100;
+
+export const classifyRoomaboutsLabelPlacement = (x, y, kind) => {
+    if (!roomaboutsFinite(x)
+        || !roomaboutsFinite(y)
+        || !roomaboutsInField(x, y)
+        || !ROOMABOUTS_LABEL_KINDS.has(kind)) return null;
+    return Object.freeze({
+        horizontal: x <= 30 ? 'start' : x >= 70 ? 'end' : 'center',
+        vertical: y >= 50 ? 'above' : 'below',
+    });
+};
+
+export const resolveRoomaboutsCanvasPalette = (readProperty) => {
+    const palette = {};
+    for (const [key, [property, fallbackToken]] of Object.entries(ROOMABOUTS_CANVAS_PALETTE_PROPERTIES)) {
+        let candidate = '';
+        if (typeof readProperty === 'function') {
+            try {
+                const value = readProperty(property);
+                if (typeof value === 'string') candidate = value.trim();
+            } catch (_error) {
+                candidate = '';
+            }
+        }
+        palette[key] = candidate || ROOMABOUTS_FIELD_LEDGER_TOKENS[fallbackToken];
+    }
+    return Object.freeze(palette);
+};
 
 const roomaboutsSignedArea = (points) => {
     let twiceArea = 0;
@@ -468,6 +514,9 @@ export class RadarRenderer {
         this.root = root;
         this._setTimeout = timers.setTimeout || ((callback, delay) => setTimeout(callback, delay));
         this._clearTimeout = timers.clearTimeout || ((timerId) => clearTimeout(timerId));
+        this._requestRoomaboutsRedraw = typeof timers.requestRoomaboutsRedraw === 'function'
+            ? timers.requestRoomaboutsRedraw
+            : null;
         this.canvas = null;
         this.ctx = null;
         this.animFrameId = null;
@@ -482,6 +531,8 @@ export class RadarRenderer {
         this._roomaboutsTrailRecords = ROOMABOUTS_EMPTY_RECORDS;
         this._roomaboutsActive = false;
         this._roomaboutsCanvasMode = false;
+        this._roomaboutsSemanticElement = null;
+        this._roomaboutsSemanticItems = ROOMABOUTS_EMPTY_RECORDS;
     }
     _removeTrail(trail) {
         if (!trail) return;
@@ -557,6 +608,11 @@ export class RadarRenderer {
     _renderRoomaboutsSemantics(scene, semantic) {
         const doc = this._roomaboutsDocument();
         if (!doc || !semantic || typeof doc.createElement !== 'function') return false;
+        if (semantic === this._roomaboutsSemanticElement
+            && scene.semanticItems.length === this._roomaboutsSemanticItems.length
+            && scene.semanticItems.every((text, index) => text === this._roomaboutsSemanticItems[index])) {
+            return true;
+        }
         const items = [];
         for (const text of scene.semanticItems) {
             const item = doc.createElement('div');
@@ -570,6 +626,8 @@ export class RadarRenderer {
             this._clearRoomaboutsChildren(semantic);
             for (const item of items) semantic.appendChild(item);
         }
+        this._roomaboutsSemanticElement = semantic;
+        this._roomaboutsSemanticItems = scene.semanticItems;
         return true;
     }
     acceptRoomaboutsPresentation(presentation) {
@@ -591,25 +649,27 @@ export class RadarRenderer {
             this._roomaboutsTrailRecords = ROOMABOUTS_EMPTY_RECORDS;
             return false;
         }
-        const detached = [];
         for (const record of records) {
             if (!roomaboutsRecord(record)
-                || !roomaboutsFinite(record.x)
-                || !roomaboutsFinite(record.y)
-                || !roomaboutsFinite(record.rotationDeg)
-                || (record.side !== 'left' && record.side !== 'right')) {
+                || !Object.isFrozen(record)
+                || typeof roomaboutsOwnDataValue(record, 'ownerId') !== 'string'
+                || roomaboutsOwnDataValue(record, 'ownerId') === ''
+                || !roomaboutsFinite(roomaboutsOwnDataValue(record, 'x'))
+                || !roomaboutsFinite(roomaboutsOwnDataValue(record, 'y'))
+                || !roomaboutsFinite(roomaboutsOwnDataValue(record, 'rotationDeg'))
+                || (roomaboutsOwnDataValue(record, 'side') !== 'left'
+                    && roomaboutsOwnDataValue(record, 'side') !== 'right')
+                || !roomaboutsFinite(roomaboutsOwnDataValue(record, 'createdAtMs'))
+                || !roomaboutsFinite(roomaboutsOwnDataValue(record, 'expiresAtMs'))
+                || roomaboutsOwnDataValue(record, 'expiresAtMs') < roomaboutsOwnDataValue(record, 'createdAtMs')
+                || !Number.isSafeInteger(roomaboutsOwnDataValue(record, 'ordinal'))
+                || roomaboutsOwnDataValue(record, 'ordinal') < 0) {
                 this._roomaboutsTrailRecords = ROOMABOUTS_EMPTY_RECORDS;
                 return false;
             }
-            detached.push(Object.freeze({
-                x: record.x,
-                y: record.y,
-                rotationDeg: record.rotationDeg,
-                side: record.side,
-            }));
         }
-        this._roomaboutsTrailRecords = detached.length > 0
-            ? Object.freeze(detached)
+        this._roomaboutsTrailRecords = records.length > 0
+            ? Object.freeze([...records])
             : ROOMABOUTS_EMPTY_RECORDS;
         return true;
     }
@@ -618,6 +678,8 @@ export class RadarRenderer {
         this._roomaboutsTrailRecords = ROOMABOUTS_EMPTY_RECORDS;
         this._roomaboutsActive = false;
         this._roomaboutsCanvasMode = false;
+        this._roomaboutsSemanticElement = null;
+        this._roomaboutsSemanticItems = ROOMABOUTS_EMPTY_RECORDS;
         this._clearRoomaboutsChildren(this.root.getElementById('svg-canvas'));
         this._clearRoomaboutsChildren(this.root.getElementById('roomabouts-visual-layer'));
         this._clearRoomaboutsChildren(this.root.getElementById('roomabouts-semantic-layer'));
@@ -654,9 +716,18 @@ export class RadarRenderer {
     }
     wakeRenderLoop() {
         if (!this.canvas || !this.ctx) return;
+        if (this._roomaboutsActive) {
+            this._requestRoomaboutsCoordinatorRedraw();
+            return;
+        }
         if (this.animFrameId === null) {
             this.animFrameId = requestAnimationFrame(() => this.renderLoop());
         }
+    }
+    _requestRoomaboutsCoordinatorRedraw() {
+        if (!this._requestRoomaboutsRedraw) return false;
+        this._requestRoomaboutsRedraw();
+        return true;
     }
     _create(tag, attrs = {}, style = {}) {
         const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
@@ -720,6 +791,18 @@ export class RadarRenderer {
         element.style.left = `${x}%`;
         element.style.top = `${y}%`;
     }
+    _createRoomaboutsLabel(className, text, x, y, kind, doc) {
+        const placement = classifyRoomaboutsLabelPlacement(x, y, kind);
+        if (!placement) return null;
+        const element = doc.createElement('div');
+        element.setAttribute('class', className);
+        element.setAttribute('data-label-horizontal', placement.horizontal);
+        element.setAttribute('data-label-vertical', placement.vertical);
+        element.setAttribute('aria-hidden', 'true');
+        this._positionRoomaboutsElement(element, x, y);
+        element.textContent = text;
+        return element;
+    }
     _createRoomaboutsStation(station, doc) {
         const element = doc.createElement('div');
         element.setAttribute('class', 'roomabouts-station');
@@ -727,11 +810,17 @@ export class RadarRenderer {
         element.setAttribute('data-paused', String(station.paused));
         element.setAttribute('aria-hidden', 'true');
         this._positionRoomaboutsElement(element, station.x, station.y);
-        const label = doc.createElement('span');
-        label.setAttribute('class', 'roomabouts-station-label');
-        label.textContent = `${station.label} · Survey station — ${station.stateText}`;
-        element.appendChild(label);
         return element;
+    }
+    _createRoomaboutsStationLabel(station, doc) {
+        return this._createRoomaboutsLabel(
+            'roomabouts-station-label',
+            `${station.label} · Survey station — ${station.stateText}`,
+            station.x,
+            station.y,
+            'station',
+            doc,
+        );
     }
     _createRoomaboutsRegionLabel(region, doc) {
         if (!region.labelPoint) return null;
@@ -741,12 +830,16 @@ export class RadarRenderer {
             entrance: 'Entrance region',
             stationary: 'Stationary region',
         };
-        const element = doc.createElement('div');
-        element.setAttribute('class', 'roomabouts-zone-label');
+        const element = this._createRoomaboutsLabel(
+            'roomabouts-zone-label',
+            region.name || labels[region.kind],
+            region.labelPoint[0],
+            region.labelPoint[1],
+            'region',
+            doc,
+        );
+        if (!element) return null;
         element.setAttribute('data-region-kind', region.kind);
-        element.setAttribute('aria-hidden', 'true');
-        this._positionRoomaboutsElement(element, region.labelPoint[0], region.labelPoint[1]);
-        element.textContent = region.name || labels[region.kind];
         return element;
     }
     _createRoomaboutsTrack(track, doc) {
@@ -756,17 +849,25 @@ export class RadarRenderer {
         element.setAttribute('data-position-basis', track.positionBasis);
         element.setAttribute('aria-hidden', 'true');
         this._positionRoomaboutsElement(element, track.x, track.y);
-        const label = doc.createElement('span');
-        label.setAttribute('class', 'roomabouts-track-label');
-        label.textContent = `${track.alias} · ${track.stateText}`;
+        return element;
+    }
+    _createRoomaboutsTrackLabel(track, doc) {
+        const label = this._createRoomaboutsLabel(
+            'roomabouts-track-label',
+            `${track.alias} · ${track.stateText}`,
+            track.x,
+            track.y,
+            'track',
+            doc,
+        );
+        if (!label) return null;
         if (track.postureText) {
             const posture = doc.createElement('span');
             posture.setAttribute('class', 'roomabouts-posture');
-            posture.textContent = track.postureText;
+            posture.textContent = ` · ${track.postureText}`;
             label.appendChild(posture);
         }
-        element.appendChild(label);
-        return element;
+        return label;
     }
     _createRoomaboutsStep(record, width, height, doc) {
         const projection = projectRoomaboutsStep(record, width, height);
@@ -792,11 +893,16 @@ export class RadarRenderer {
         }
         for (const station of scene.stations) {
             visual.appendChild(this._createRoomaboutsStation(station, doc));
+            const label = this._createRoomaboutsStationLabel(station, doc);
+            if (label) visual.appendChild(label);
+        }
+        for (const track of scene.tracks) {
+            if (track.outsideField) continue;
+            if (mode === 'css') visual.appendChild(this._createRoomaboutsTrack(track, doc));
+            const label = this._createRoomaboutsTrackLabel(track, doc);
+            if (label) visual.appendChild(label);
         }
         if (mode === 'css') {
-            for (const track of scene.tracks) {
-                if (!track.outsideField) visual.appendChild(this._createRoomaboutsTrack(track, doc));
-            }
             const bounds = typeof visual.getBoundingClientRect === 'function'
                 ? visual.getBoundingClientRect()
                 : { width: visual.clientWidth, height: visual.clientHeight };
@@ -833,20 +939,33 @@ export class RadarRenderer {
         if (this.canvas.height !== backingHeight) this.canvas.height = backingHeight;
         return Object.freeze({ width, height, scaleX: backingWidth / width, scaleY: backingHeight / height });
     }
-    _roomaboutsCanvasTrackColor(track) {
-        if (track.lifecycle === 'confirmed' && track.positionBasis === 'observed') {
-            return ROOMABOUTS_FIELD_LEDGER_TOKENS.stateObserved;
+    _roomaboutsCanvasPalette() {
+        const root = this.root?.getElementById?.('root');
+        if (!root || typeof getComputedStyle !== 'function') {
+            return resolveRoomaboutsCanvasPalette(null);
         }
-        if (track.lifecycle === 'fading') return ROOMABOUTS_FIELD_LEDGER_TOKENS.stateLastSeen;
-        if (track.lifecycle === 'tentative') return ROOMABOUTS_FIELD_LEDGER_TOKENS.inkMuted;
-        return ROOMABOUTS_FIELD_LEDGER_TOKENS.stateHeld;
+        let computed;
+        try {
+            computed = getComputedStyle(root);
+        } catch (_error) {
+            return resolveRoomaboutsCanvasPalette(null);
+        }
+        return resolveRoomaboutsCanvasPalette((property) => computed.getPropertyValue(property));
     }
-    _drawRoomaboutsCanvasTrack(ctx, track, width, height) {
+    _roomaboutsCanvasTrackColor(track, palette) {
+        if (track.lifecycle === 'confirmed' && track.positionBasis === 'observed') {
+            return palette.stateObserved;
+        }
+        if (track.lifecycle === 'fading') return palette.stateLastSeen;
+        if (track.lifecycle === 'tentative') return palette.inkMuted;
+        return palette.stateHeld;
+    }
+    _drawRoomaboutsCanvasTrack(ctx, track, width, height, palette = this._roomaboutsCanvasPalette()) {
         if (track.outsideField) return;
         const x = track.x * width / 100;
         const y = track.y * height / 100;
         if (!roomaboutsFinite(x) || !roomaboutsFinite(y)) return;
-        const color = this._roomaboutsCanvasTrackColor(track);
+        const color = this._roomaboutsCanvasTrackColor(track, palette);
         ctx.save();
         ctx.translate(x, y);
         ctx.strokeStyle = color;
@@ -887,55 +1006,58 @@ export class RadarRenderer {
             ctx.stroke();
         }
         ctx.setLineDash([]);
-        ctx.font = '500 12px ui-sans-serif, system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        const labelText = `${track.alias} · ${track.stateText}`;
-        const labelMeasure = typeof ctx.measureText === 'function'
-            ? ctx.measureText(labelText).width
-            : labelText.length * 6;
-        const labelWidth = Math.max(1, labelMeasure + 8);
-        ctx.fillStyle = ROOMABOUTS_FIELD_LEDGER_TOKENS.labelBackground;
-        ctx.fillRect(-labelWidth / 2, 13, labelWidth, 18);
-        ctx.fillStyle = ROOMABOUTS_FIELD_LEDGER_TOKENS.labelText;
-        ctx.fillText(labelText, 0, 15);
-        if (track.postureText) {
-            ctx.font = '600 11px ui-sans-serif, system-ui, sans-serif';
-            const measured = typeof ctx.measureText === 'function'
-                ? ctx.measureText(track.postureText).width
-                : track.postureText.length * 6;
-            const badgeWidth = Math.max(1, measured + 8);
-            ctx.fillStyle = ROOMABOUTS_FIELD_LEDGER_TOKENS.stateAttention;
-            ctx.fillRect(-badgeWidth / 2, 33, badgeWidth, 17);
-            ctx.fillStyle = ROOMABOUTS_FIELD_LEDGER_TOKENS.labelText;
-            ctx.fillText(track.postureText, 0, 35);
-        }
         ctx.restore();
     }
-    _drawRoomaboutsCanvasStep(ctx, record, width, height) {
+    _drawRoomaboutsCanvasStep(ctx, record, width, height, palette = this._roomaboutsCanvasPalette()) {
         const projection = projectRoomaboutsStep(record, width, height);
         if (!projection) return;
         ctx.save();
         ctx.translate(projection.screenX, projection.screenY);
         ctx.rotate(projection.rotationDeg * Math.PI / 180);
         if (projection.side === 'right') ctx.scale(-1, 1);
-        ctx.translate(-3.5, -6.5);
-        ctx.fillStyle = ROOMABOUTS_FIELD_LEDGER_TOKENS.stateObserved;
+        ctx.translate(-ROOMABOUTS_STEP_GLYPH.widthPx / 2, -ROOMABOUTS_STEP_GLYPH.heightPx / 2);
+        ctx.fillStyle = palette.stateObserved;
+        const forefoot = ROOMABOUTS_STEP_GLYPH.forefoot;
+        const corner = forefoot.cornerRadiusPx;
+        const notchY = ROOMABOUTS_STEP_GLYPH.forefootHeightPx * forefoot.notchYRatio;
         ctx.beginPath();
-        ctx.moveTo(0.7, 0);
-        ctx.lineTo(6.3, 0);
-        ctx.quadraticCurveTo(7, 0, 7, 0.7);
-        ctx.lineTo(7, 7.3);
-        ctx.quadraticCurveTo(7, 8, 6.3, 8);
-        ctx.lineTo(2.94, 8);
-        ctx.lineTo(2.38, 6.24);
-        ctx.lineTo(0, 6.24);
-        ctx.lineTo(0, 0.7);
-        ctx.quadraticCurveTo(0, 0, 0.7, 0);
+        ctx.moveTo(corner, 0);
+        ctx.lineTo(ROOMABOUTS_STEP_GLYPH.widthPx - corner, 0);
+        ctx.quadraticCurveTo(
+            ROOMABOUTS_STEP_GLYPH.widthPx,
+            0,
+            ROOMABOUTS_STEP_GLYPH.widthPx,
+            corner,
+        );
+        ctx.lineTo(ROOMABOUTS_STEP_GLYPH.widthPx, ROOMABOUTS_STEP_GLYPH.forefootHeightPx - corner);
+        ctx.quadraticCurveTo(
+            ROOMABOUTS_STEP_GLYPH.widthPx,
+            ROOMABOUTS_STEP_GLYPH.forefootHeightPx,
+            ROOMABOUTS_STEP_GLYPH.widthPx - corner,
+            ROOMABOUTS_STEP_GLYPH.forefootHeightPx,
+        );
+        ctx.lineTo(
+            ROOMABOUTS_STEP_GLYPH.widthPx * forefoot.notchOuterXRatio,
+            ROOMABOUTS_STEP_GLYPH.forefootHeightPx,
+        );
+        ctx.lineTo(
+            ROOMABOUTS_STEP_GLYPH.widthPx * forefoot.notchInnerXRatio,
+            notchY,
+        );
+        ctx.lineTo(0, notchY);
+        ctx.lineTo(0, corner);
+        ctx.quadraticCurveTo(0, 0, corner, 0);
         ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = ROOMABOUTS_FIELD_LEDGER_TOKENS.ink;
-        ctx.fillRect(1, 9, 4, 4);
+        ctx.fillStyle = palette.ink;
+        const heelX = ROOMABOUTS_STEP_GLYPH.heelLeftPx;
+        const heelY = ROOMABOUTS_STEP_GLYPH.heelTopPx;
+        const heelWidth = ROOMABOUTS_STEP_GLYPH.heelWidthPx;
+        const heelHeight = ROOMABOUTS_STEP_GLYPH.heelHeightPx;
+        const heelCorner = ROOMABOUTS_STEP_GLYPH.heelCornerRadiusPx;
+        ctx.beginPath();
+        ctx.roundRect(heelX, heelY, heelWidth, heelHeight, heelCorner);
+        ctx.fill();
         ctx.restore();
     }
     _renderRoomaboutsCanvas() {
@@ -949,11 +1071,12 @@ export class RadarRenderer {
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+        const palette = this._roomaboutsCanvasPalette();
         for (const track of this._roomaboutsScene.tracks) {
-            this._drawRoomaboutsCanvasTrack(this.ctx, track, width, height);
+            this._drawRoomaboutsCanvasTrack(this.ctx, track, width, height, palette);
         }
         for (const record of this._roomaboutsTrailRecords) {
-            this._drawRoomaboutsCanvasStep(this.ctx, record, width, height);
+            this._drawRoomaboutsCanvasStep(this.ctx, record, width, height, palette);
         }
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this._isCanvasCleared = false;
@@ -989,6 +1112,10 @@ export class RadarRenderer {
             this.ctx = this.canvas.getContext('2d');
             const updateCanvasSize = () => {
                 if (!this.canvas) return;
+                if (this._roomaboutsActive) {
+                    this._requestRoomaboutsCoordinatorRedraw();
+                    return;
+                }
                 const rect = this.canvas.getBoundingClientRect();
                 const rw = Math.round(rect.width || this.canvas.clientWidth || 0);
                 const rh = Math.round(rect.height || this.canvas.clientHeight || 0);
@@ -1004,9 +1131,9 @@ export class RadarRenderer {
             }
             this._resizeHandler = updateCanvasSize;
             window.addEventListener('resize', updateCanvasSize);
-            updateCanvasSize(); 
+            if (!this._roomaboutsActive) updateCanvasSize();
         }
-        this.wakeRenderLoop();
+        if (!this._roomaboutsActive) this.wakeRenderLoop();
     }
     renderLoop() {
         if (!this.ctx || !this.canvas) return;
@@ -1019,9 +1146,8 @@ export class RadarRenderer {
             }
         }
         if (this._roomaboutsActive) {
-            if (this._roomaboutsCanvasMode) this._renderRoomaboutsCanvas();
-            else this._clearRoomaboutsCanvas();
             this.animFrameId = null;
+            this._requestRoomaboutsCoordinatorRedraw();
             return;
         }
         const globalConfig = (this.currentState?.data && this.currentState.data.global_config) || {};

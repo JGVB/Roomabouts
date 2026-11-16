@@ -49,13 +49,14 @@ function expectBoundedRegionLabels(layout, expectedTexts) {
         expect(label.width).toBeGreaterThan(0);
         expect(label.height).toBeGreaterThan(0);
         expect(label.width).toBeLessThanOrEqual(Math.min(320, layout.root.width * 0.5) + 1);
-        expect(label.height).toBeLessThanOrEqual(40);
         expect(label.left).toBeGreaterThanOrEqual(layout.root.left - 1);
         expect(label.top).toBeGreaterThanOrEqual(layout.root.top - 1);
         expect(label.right).toBeLessThanOrEqual(layout.root.right + 1);
         expect(label.bottom).toBeLessThanOrEqual(layout.root.bottom + 1);
-        expect(label.overflow).toBe('hidden');
-        expect(label.textOverflow).toBe('ellipsis');
+        expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1);
+        expect(label.scrollHeight).toBeLessThanOrEqual(label.clientHeight + 1);
+        expect(label.overflow).not.toBe('hidden');
+        expect(label.textOverflow).not.toBe('ellipsis');
     }
 }
 
@@ -118,7 +119,11 @@ test('Field Ledger renders configured regions, truthful track pairs, and separat
                     bottom: rect.bottom,
                     width: rect.width,
                     height: rect.height,
+                    clientHeight: label.clientHeight,
+                    clientWidth: label.clientWidth,
                     overflow: style.overflow,
+                    scrollHeight: label.scrollHeight,
+                    scrollWidth: label.scrollWidth,
                     textOverflow: style.textOverflow,
                 };
             }),
@@ -248,7 +253,11 @@ test('hostile config and region names remain inert in both render modes', async 
                                 bottom: rect.bottom,
                                 width: rect.width,
                                 height: rect.height,
+                                clientHeight: label.clientHeight,
+                                clientWidth: label.clientWidth,
                                 overflow: style.overflow,
+                                scrollHeight: label.scrollHeight,
+                                scrollWidth: label.scrollWidth,
                                 textOverflow: style.textOverflow,
                             };
                         }),
