@@ -168,9 +168,19 @@ class ReleaseContractTests(unittest.TestCase):
             "overwrite: false",
             "PLAYWRIGHT_BROWSERS_PATH",
             "npm_config_cache",
+            'echo "npm_config_cache=$RUNNER_TEMP/roomabouts-npm-cache"',
+            'echo "npm_config_userconfig=$RUNNER_TEMP/roomabouts-empty.npmrc"',
+            'echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/roomabouts-playwright-browsers"',
+            '>> "$GITHUB_ENV"',
         ):
             with self.subTest(required=required):
                 self.assertIn(required, quality)
+        for forbidden_job_env in (
+            "npm_config_cache: ${{ runner.temp }}",
+            "npm_config_userconfig: ${{ runner.temp }}",
+            "PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}",
+        ):
+            self.assertNotIn(forbidden_job_env, quality)
         self.assertNotRegex(quality, r"(?m)^\s*-?\s*run:\s*npx\b")
         raw_browser_install_commands = [
             line.strip()

@@ -58,11 +58,6 @@ jobs:
     name: Pinned Chromium checks
     needs: quality
     runs-on: ubuntu-24.04
-    env:
-      npm_config_cache: ${{ runner.temp }}/roomabouts-npm-cache
-      npm_config_registry: https://registry.npmjs.org/
-      npm_config_userconfig: ${{ runner.temp }}/roomabouts-empty.npmrc
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/roomabouts-playwright-browsers
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -75,6 +70,15 @@ jobs:
           node-version-file: .node-version
           check-latest: false
           package-manager-cache: false
+
+      - name: Configure isolated tool paths
+        run: |
+          {
+            echo "npm_config_cache=$RUNNER_TEMP/roomabouts-npm-cache"
+            echo 'npm_config_registry=https://registry.npmjs.org/'
+            echo "npm_config_userconfig=$RUNNER_TEMP/roomabouts-empty.npmrc"
+            echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/roomabouts-playwright-browsers"
+          } >> "$GITHUB_ENV"
 
       - name: Isolate npm configuration
         run: |
