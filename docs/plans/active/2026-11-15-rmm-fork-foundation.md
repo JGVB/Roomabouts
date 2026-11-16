@@ -506,12 +506,14 @@ Wave 3A exit evidence: fork-only Quality run `43794923954` passed both the uncha
 
 ##### Wave 3B — Pure theme and footprint TDD
 
-- [ ] Add failing Deno tests for theme activation, frozen token/contrast schema, deterministic procedural CSS, isolated read-only classes, and prohibited inherited styles, external URL/font/raster behavior, glow/pulse/emoji/alarm copy.
-- [ ] Implement the smallest frozen theme/token module that satisfies those tests.
-- [ ] Add failing footprint tests for the complete accepted algorithm: first anchor; four-unit cadence-invariant Euclidean spacing; residual/corner interpolation; map heading; portrait/landscape/resize screen projection; strict side alternation; epsilon/zero-length; exact dedupe and out-of-order rejection; 2000-ms gap and 25-unit discontinuity reset; eight/16/96 caps; fail-closed `visible()` and reset-on-`observe()` clock regression; exact logical expiry at 5999/6000/6001 ms; on-time/delayed-callback/next-observation/resume/reset/destroy physical cleanup; timer-count/handle cancellation; and no stale bridge.
-- [ ] Implement the pure footprint store with injected clock and scheduler, at most one owned expiry timer, and no DOM, Canvas, Home Assistant, network, or persistence dependency.
+- [x] Add failing Deno tests for theme activation, frozen token/contrast schema, deterministic procedural CSS, isolated read-only classes, and prohibited inherited styles, external URL/font/raster behavior, glow/pulse/emoji/alarm copy.
+- [x] Implement the smallest frozen theme/token module that satisfies those tests.
+- [x] Add failing footprint tests for the complete accepted algorithm: first anchor; four-unit cadence-invariant Euclidean spacing; residual/corner interpolation; map heading; portrait/landscape/resize screen projection; strict side alternation; epsilon/zero-length; exact dedupe and out-of-order rejection; 2000-ms gap and 25-unit discontinuity reset; eight/16/96 caps; fail-closed `visible()` and reset-on-`observe()` clock regression; exact logical expiry at 5999/6000/6001 ms; on-time/delayed-callback/next-observation/resume/reset/destroy physical cleanup; timer-count/handle cancellation; and no stale bridge.
+- [x] Implement the pure footprint store with injected clock and scheduler, at most one owned expiry timer, and no DOM, Canvas, Home Assistant, network, or persistence dependency.
 
 Exit: pure modules pass in Deno, invalid/nonfinite input fails closed, and an independent reviewer approves the arithmetic and lifecycle rules.
+
+Wave 3B exit evidence: 12 theme tests and 18 footprint tests pass inside the 62-test dependency-free Deno gate; all 123 Python contract tests pass; focused and full Deno checks pass; prohibited network/style/originality scans are clean in production modules; and two independent reviews approve the final arithmetic, timer, lifecycle, projection, sanitizer, and theme-isolation behavior after stale-timer, strict-side, ordinal, and bounded-owner defects found during review were corrected.
 
 ##### Wave 3C — Read-only map and DOM integration
 

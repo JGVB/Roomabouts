@@ -75,6 +75,8 @@ class FrontendSafetyTests(unittest.TestCase):
                 "radar-renderer.js",
                 "radar-ui.js",
                 "roomabouts-presentation.js",
+                "roomabouts-theme.js",
+                "roomabouts-trails.js",
             },
         )
         lower_bundle = self.bundle.lower()

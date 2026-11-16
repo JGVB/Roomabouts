@@ -167,10 +167,10 @@ class Phase2CardIntegrationTests(unittest.TestCase):
             self.renderer.index("dotsLayer.insertBefore(trail, dot)"),
         )
 
-    def test_six_frontend_modules_share_the_numeric_manifest_version(self):
+    def test_frontend_modules_retain_the_phase2_numeric_manifest_version(self):
         manifest = json.loads((COMPONENT / "manifest.json").read_text(encoding="utf-8"))
         modules = tuple(sorted(WWW.glob("*.js")))
-        self.assertEqual(len(modules), 6)
+        self.assertEqual(len(modules), 8)
         self.assertEqual(manifest["version"], "1.4.0")
         self.assertIn("./roomabouts-presentation.js?v=1.4.0", self.card)
         for source in modules:

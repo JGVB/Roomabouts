@@ -305,6 +305,8 @@ class ReleaseContractTests(unittest.TestCase):
             "www/radar-renderer.js",
             "www/radar-ui.js",
             "www/roomabouts-presentation.js",
+            "www/roomabouts-theme.js",
+            "www/roomabouts-trails.js",
         )
 
         for relative_path in required:
@@ -316,7 +318,7 @@ class ReleaseContractTests(unittest.TestCase):
         version = manifest["version"]
         self.assertRegex(version, r"^\d+\.\d+\.\d+$")
         self.assertEqual(version, "1.4.0")
-        self.assertEqual(len(tuple(WWW.glob("*.js"))), 6)
+        self.assertEqual(len(tuple(WWW.glob("*.js"))), 8)
         imports_found = 0
 
         for source in sorted(WWW.glob("*.js")):
