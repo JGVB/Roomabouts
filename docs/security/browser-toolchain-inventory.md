@@ -1,8 +1,10 @@
 # Browser toolchain inventory
 
-Status: Partial local verification; Linux browser payload verification remains a Wave 3A exit gate
+Status: Verified; Wave 3A browser-toolchain gate closed
 Recorded: 2026-11-15
 Decision: `docs/decisions/0003-browser-test-toolchain.md`
+
+Linux verification: [Quality run 43794923954](https://github.com/JGVB/Roomabouts/actions/runs/43794923954) at commit `62b069266fc64b6d19d17a683986d6978415a5e5`
 
 This inventory covers development and CI tooling only. None of these files, packages, binaries, screenshots, reports, or notices may enter the Home Assistant release archive.
 
@@ -62,16 +64,32 @@ The local FFmpeg identified itself as `n7.0.1-playwright-build-1013`, reported L
 
 The workflow has repository permission `contents: read`. Artifact data leaves the runner for GitHub's runtime artifact service, but no repository `actions: write` permission is granted.
 
-## Linux browser payload gate
+## Verified Linux browser payload
 
-The following evidence must be captured from the first pinned `ubuntu-24.04` browser job before Wave 3A is complete. Revision numbers identify Playwright registry entries; they are not content hashes.
+The first accepted `ubuntu-24.04` browser job ran on image `ubuntu24 20261111.370.1`, reported Ubuntu `24.04.5 LTS (Noble Numbat)`, and passed the exact package, registry, payload-boundary, advisory, signature, loopback-browser, and release-contract checks. Revision numbers identify Playwright registry entries; the hashes below identify the installed Linux files from that run.
 
 | Item | Required identity | License evidence required | Required runtime evidence | Status |
 | --- | --- | --- | --- | --- |
-| Chromium headless shell | `159.0.8154.6`, revision `1255` | Chromium BSD-style license, `LICENSE.headless_shell`, and bundled third-party notices | Executable and notice-file SHA-256; `playwright install --list`; filesystem scan proving full Chromium/Firefox/WebKit/winldd/Android absent | Pending first Linux job |
-| Playwright FFmpeg | revision `1013` | Notice file plus complete output of `ffmpeg-linux -L`; do not assume license | Executable/notice SHA-256; `-version`, `-buildconf`, and explicit result for `--enable-gpl` / `--enable-nonfree` | Pending first Linux job |
-| Ubuntu browser dependencies | exact packages installed by Playwright on `ubuntu-24.04` | Mixed licenses under `/usr/share/doc` | `dpkg-query` package/version inventory and relevant notice paths | Pending first Linux job |
-| Linux font/render stack | hosted runner image plus fontconfig, FreeType, HarfBuzz, DejaVu, Liberation, and resolved system-font packages | Mixed distribution licenses; CI-only | Runner image, `/etc/os-release`, package versions, and accepted-golden hashes | Pending golden review |
+| Chromium headless shell | `159.0.8154.6`, revision `1255` | `chromium_headless_shell-1255/chrome-headless-shell-linux64/LICENSE.headless_shell`, SHA-256 `fe9fd59e07a27efa69c816d4726b68564df93cd4b666eb81ac75df9dd61e2f92` | Executable SHA-256 `24eb0a14de64ab0c9c2e283a5512ca817db64af8fd853cdb4d818f19a8e23b9b`; exact payload scan retained only the shell and FFmpeg directories | Verified in run `43794923954` |
+| Playwright FFmpeg | revision `1013`; `n7.0.1-playwright-build-1013` | `ffmpeg-1013/COPYING.LGPLv2.1`, SHA-256 `b634ab5640e258563c536e658cad87080553df6f34f62269a21d554844e58bfe`; `-L` reported LGPL 2.1-or-later | Executable SHA-256 `e829f7f8c497178109f4a388247b778a86637bf075d7bba5834c797a9d61a269`; `--enable-gpl` absent; `--enable-nonfree` absent | Verified in run `43794923954` |
+| Ubuntu browser dependencies | Nine font packages added by Playwright on this runner image | Mixed distribution licenses under the recorded `/usr/share/doc/<package>` roots | Complete before/after `dpkg-query` inventory retained in the run; exact added set recorded below | Verified in run `43794923954` |
+| Linux font/render stack | `ubuntu24 20261111.370.1`; Ubuntu `24.04.5 LTS` | Mixed distribution licenses; CI-only | Exact fontconfig, FreeType, HarfBuzz, DejaVu, and Liberation versions recorded below; future golden hashes remain tied to this inventory | Verified for browser-lane bootstrap; golden review remains Wave 3E |
+
+Packages newly added by `playwright install --with-deps --only-shell chromium` were:
+
+| Package | Version | Notice root |
+| --- | --- | --- |
+| `fonts-freefont-ttf` | `20211204+svn4273-2` | `/usr/share/doc/fonts-freefont-ttf` |
+| `fonts-ipafont-gothic` | `00303-21ubuntu1` | `/usr/share/doc/fonts-ipafont-gothic` |
+| `fonts-tlwg-loma-otf` | `1:0.7.3-1` | `/usr/share/doc/fonts-tlwg-loma-otf` |
+| `fonts-unifont` | `1:15.1.01-1build1` | `/usr/share/doc/fonts-unifont` |
+| `fonts-wqy-zenhei` | `0.9.45-8` | `/usr/share/doc/fonts-wqy-zenhei` |
+| `xfonts-cyrillic` | `1:1.0.5+nmu1` | `/usr/share/doc/xfonts-cyrillic` |
+| `xfonts-encodings` | `1:1.0.5-0ubuntu2` | `/usr/share/doc/xfonts-encodings` |
+| `xfonts-scalable` | `1:1.0.3-1.3` | `/usr/share/doc/xfonts-scalable` |
+| `xfonts-utils` | `1:7.7+6build3` | `/usr/share/doc/xfonts-utils` |
+
+The accepted font/render inventory is `fontconfig` and `fontconfig-config` `2.15.0-1.1ubuntu2`; `fonts-dejavu`, `fonts-dejavu-core`, `fonts-dejavu-extra`, and `fonts-dejavu-mono` `2.37-8`; `fonts-liberation` `1:2.1.5-3`; `libfontconfig1` `2.15.0-1.1ubuntu2`; `libfreetype6` `2.13.2+dfsg-1ubuntu0.2`; and `libharfbuzz0b` `8.3.0-2build2`.
 
 The browser job uses `video: "off"` and `trace: "off"`; FFmpeg is still installed because it is part of Playwright's approved Chromium-shell payload. `PLAYWRIGHT_DOWNLOAD_HOST` and per-browser host overrides are forbidden. Microsoft CDN payloads and floating Ubuntu repositories remain trusted first-download surfaces; post-install hashes support comparison but do not create a cryptographic trust anchor.
 

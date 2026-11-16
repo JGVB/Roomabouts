@@ -491,16 +491,18 @@ No lane commits a shared-contract change. A required contract change stops downs
 
 - [x] Obtain explicit user approval for both decision 0003 and the complete Field Ledger visual specification.
 - [x] Mark both documents Accepted with the approval date. Wave 3B and every product edit remained blocked until both records were accepted.
-- [ ] Temporarily bootstrap Node from the official Apple silicon `24.22.3` archive using the accepted literal SHA-256, no global/system install, and no ambient pnpm/Corepack substitution.
-- [ ] Add the exact Node `24.22.3`, npm `11.19.1`, `@playwright/test` `1.65.1`, Chromium headless shell `159.0.8154.6`/revision `1255`, FFmpeg revision `1013`, and both pinned-action contracts.
-- [ ] Generate and review lockfile-version-3 `package-lock.json`; allow exactly the root plus three Playwright packages with frozen registry URLs/integrities, no additional/optional package, lifecycle script, alternate host, or unqualified `npx` fetch.
-- [ ] Install with scripts disabled, automatic audit/fund submission disabled, and explicit task-specific cache/browser paths. Local Node archive/unpack, npm cache, and browser payload stay under the recorded temporary root; CI Node/npm may use setup-node's toolcache; the CLI lives only in ignored/release-excluded repository `node_modules/.bin`. Download only the explicit Playwright Chromium shell/FFmpeg payload. Separately run the disclosed high-severity advisory query and signature check with a token-free pinned-registry configuration; never auto-fix.
-- [ ] Record Node/npm/action/package/Chromium/FFmpeg/Ubuntu license and notice evidence, installed browser/FFmpeg and apt inventory/hashes, and residual CDN/floating-apt risk in `docs/security/browser-toolchain-inventory.md`.
-- [ ] The coordinator alone updates `tests/python/test_release_contract.py` so version/range/integrity drift, unpinned actions, unexpected packages/scripts, forbidden browser payloads, or toolchain/browser artifacts fail the release contract.
-- [ ] Constrain the required artifact action to a dedicated synthetic PNG/JSON directory, seven-day retention, no hidden/overwrite/missing files, and recorded artifact digest; never upload traces, video, reports, logs, source, Home Assistant data, or household geometry.
-- [ ] Prove the unchanged Python/Deno gate still passes when Node is absent.
+- [x] Temporarily bootstrap Node from the official Apple silicon `24.22.3` archive using the accepted literal SHA-256, no global/system install, and no ambient pnpm/Corepack substitution.
+- [x] Add the exact Node `24.22.3`, npm `11.19.1`, `@playwright/test` `1.65.1`, Chromium headless shell `159.0.8154.6`/revision `1255`, FFmpeg revision `1013`, and both pinned-action contracts.
+- [x] Generate and review lockfile-version-3 `package-lock.json`; allow exactly the root plus three Playwright packages with frozen registry URLs/integrities, no additional/optional package, lifecycle script, alternate host, or unqualified `npx` fetch.
+- [x] Install with scripts disabled, automatic audit/fund submission disabled, and explicit task-specific cache/browser paths. Local Node archive/unpack, npm cache, and browser payload stay under the recorded temporary root; CI Node/npm may use setup-node's toolcache; the CLI lives only in ignored/release-excluded repository `node_modules/.bin`. Download only the explicit Playwright Chromium shell/FFmpeg payload. Separately run the disclosed high-severity advisory query and signature check with a token-free pinned-registry configuration; never auto-fix.
+- [x] Record Node/npm/action/package/Chromium/FFmpeg/Ubuntu license and notice evidence, installed browser/FFmpeg and apt inventory/hashes, and residual CDN/floating-apt risk in `docs/security/browser-toolchain-inventory.md`.
+- [x] The coordinator alone updates `tests/python/test_release_contract.py` so version/range/integrity drift, unpinned actions, unexpected packages/scripts, forbidden browser payloads, or toolchain/browser artifacts fail the release contract.
+- [x] Constrain the required artifact action to a dedicated synthetic PNG/JSON directory, seven-day retention, no hidden/overwrite/missing files, and recorded artifact digest; never upload traces, video, reports, logs, source, Home Assistant data, or household geometry.
+- [x] Prove the unchanged Python/Deno gate still passes when Node is absent.
 
 Exit: the lock tree and supply-chain diff are reviewed, the separate browser job can launch the loopback fixture, and no product module has changed.
+
+Wave 3A exit evidence: fork-only Quality run `43794923954` passed both the unchanged Python/Deno job and the pinned Chromium job at commit `62b069266fc64b6d19d17a683986d6978415a5e5`; Linux hashes, license output, exact added packages, complete apt inventory, and font/render versions are recorded in `docs/security/browser-toolchain-inventory.md`.
 
 ##### Wave 3B — Pure theme and footprint TDD
 
