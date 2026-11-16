@@ -2,6 +2,8 @@
 
 Roomabouts is a GitHub fork of Radar Map Manager. Keep the fork relationship and upstream history visible.
 
+The user has explicitly prohibited sending Roomabouts work back to the original owner. Do not open upstream pull requests, issues, discussions, or other contributions. Upstream remains a fetch-only source for reviewed synchronization; Roomabouts work stays in `JGVB/Roomabouts`.
+
 ## Remotes
 
 ```text

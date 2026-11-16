@@ -52,6 +52,12 @@ A user-approved plan or explicit user direction is required before:
 
 Read-only inspection, tests using installed tooling, and bounded non-breaking fixes may proceed autonomously.
 
+## Upstream contribution boundary
+
+- Treat `Moe8383/radar_map_manager` as fetch-only reference history.
+- Do not open pull requests, issues, discussions, or other contributions against the original upstream repository or owner.
+- Roomabouts changes stay local or in `JGVB/Roomabouts` unless the user explicitly changes this instruction.
+
 ## Parallel Codex work
 
 - One implementation chat owns one branch/worktree. Architectural work also owns one active plan; bounded work records its scope and acceptance criteria in the chat or task.

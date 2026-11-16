@@ -1,10 +1,10 @@
 # Roomabouts RMM Fork Foundation and Personal One-Room Proof
 
-- Status: Phase 2 complete — Phase 3 decision pending
+- Status: Phase 3 approved — implementation in progress
 - Plan date: 2026-11-15
 - Coordinator: Roomabouts coordinator
 - Implementation branch/worktree: `codex/fork-foundation` at `/Users/jvanbev/Documents/Codebase/Roomabouts`
-- Independent reviewers: RMM foundation architecture audit, RMM test/release audit, and fresh fork-plan critique
+- Independent reviewers: RMM foundation architecture/test audits; Phase 3 toolchain, originality/accessibility, and fresh critical-plan reviews
 - Upstream baseline: `Moe8383/radar_map_manager@e7caa9368dce3dc51f7ca03f6629b2c2fa6638b8`
 - Target outcome: a safe, testable, original Roomabouts map running as a compatible Home Assistant custom integration, ready for one LD2450-class sensor when it arrives
 
@@ -17,7 +17,7 @@ The work proceeds in this order:
 1. preserve fork ancestry, licensing, governance, and upstream synchronization;
 2. add deterministic characterization tests and a security/privacy floor;
 3. introduce a source-neutral presentation adapter and synthetic replay path;
-4. build the original Roomabouts parchment/cartographic view without changing the technical editor;
+4. build the original Roomabouts Field Ledger survey view without changing the technical editor;
 5. smoke-test the integration in Home Assistant without a sensor;
 6. qualify one real sensor after it arrives;
 7. consider BLE, UWB, multiple sensors, and distribution only in later approved plans.
@@ -94,7 +94,7 @@ The integration manifest reports `1.3.12`, while frontend cache-busting query st
 - A small presentation adapter between inherited RMM targets and the renderer.
 - Optional identity fields and source evidence in the presentation contract, with anonymous behavior as the default.
 - An offline fake-Home-Assistant browser fixture for development without household data or a physical sensor.
-- An original antique-cartographic/parchment Roomabouts view, anonymous aliases, and alternating footprint trails.
+- An original Field Ledger survey view, anonymous aliases, configured-region geometry, and alternating abstract survey-step trails.
 - Home Assistant installation and Recorder verification before connecting live household sensor data.
 - Administrator-only coordinate snapshots for the first proof, with coordinate-free count/occupancy entities available through normal Home Assistant permissions.
 - One sensor, one floor, one room, and one moving person as the supported physical proof.
@@ -236,7 +236,7 @@ Rules:
 | F-07B Deterministic snapshot/replay | Inject clocks and freeze `RoomaboutsSnapshotV1` | Clock interfaces, generation/sequence/reset semantics, canonical JSON | Same observation fixture/config produces the same canonical hash twice; no alias/trail crosses reset/reconnect/ID-reuse cases | Python and Deno replay tests |
 | F-08 Transform parity | Share finite/null-aware golden cases | Exercise Python and JS transforms from one fixture corpus | Both implementations match each golden tolerance, including zero origins | Python/Deno fixture tests |
 | F-09 Presentation seam | Consume versioned sanitized snapshots before rendering | Add `roomabouts-presentation.js`; reject invalid/out-of-order snapshots | Zero/one/many snapshots adapt semantically; slot relabeling does not imply identity; generation resets aliases/trails | Deno adapter tests plus named manual browser-fixture protocol |
-| F-10 Original visual layer | Add Roomabouts theme and truthful footprints | Procedural parchment, ink cartography, distance-spaced left/right prints | Read-only map matches approved original direction; no protected assets; stale states emit no new prints | Browser screenshots, fixture assertions, manual IP review |
+| F-10 Original visual layer | Add Roomabouts theme and truthful footprints | Procedural paper/survey field, measured cartography, distance-spaced left/right route marks | Read-only map matches approved original direction; no protected assets; stale states emit no new prints | Browser screenshots, fixture assertions, manual IP review |
 | F-11 Editor compatibility | Preserve inherited setup/calibration UI | Limit theme wiring to read-only presentation where possible | Add/edit/save/reload flows behave as at baseline | Browser interaction tests plus HA smoke |
 | F-12 Lifecycle cleanup | Bound animation and trail state | Clear on disconnect/map/session/removal; cap count and lifetime | No retained orphan tracks/trails after fixture teardown; idle loop sleeps | Fake-HA tests and browser memory check |
 | F-13 Personal HA proof | Install manually only after security gates | Copy `custom_components` into a backed-up HA test instance and run no-sensor smoke | Integration loads, card registers, exclusive transports stay absent, admin checks and coordinate-free persistence pass | `docs/protocols/ha-no-sensor-smoke.md` |
@@ -390,31 +390,206 @@ Exit gate: Deno tests prove semantic adaptation for zero/one/many snapshots and 
 
 ### Phase 3 — Original Roomabouts map view
 
-Owner: Map UI
-Dependencies: Phase 2 exit plus an accepted `0003-browser-test-toolchain.md` decision selecting and pinning Node, package manager, Playwright, lockfile, and CI execution
+Classification: Architectural
+Owner: Map UI, coordinated by the Roomabouts coordinator
+Dependencies: Phase 2 exit plus explicit user acceptance of proposed decision `0003-browser-test-toolchain.md` and `docs/engineering/phase3-field-ledger-visual-spec.md`
+Visual contract: `docs/engineering/phase3-field-ledger-visual-spec.md`
 
-Expected files:
+#### Approval boundary
+
+Phase 3 planning and review may proceed while decision 0003 and the Field Ledger specification are Proposed. Before the user accepts both documents—including the exact Node/npm/Playwright/Chromium/FFmpeg versions and identifiers, literal Node checksum, npm integrities/advisory disclosure, required artifact action/storage, license review, network/bootstrap surface, and complete visual/behavioral contract—do not create a Node manifest or lockfile, install a package or browser, change CI, generate goldens, or edit product modules. The current computer has Deno and standalone pnpm but no `node` or `npm`; that fact must not be hidden by an ambient tool assumption.
+
+After acceptance, change both documents to Accepted with the approval date before the first dependency or product-code commit. If a toolchain or visual/behavioral contract changes, return to approval rather than silently updating the record.
+
+#### Scope
+
+- Make the read-only Roomabouts card a useful original Field Ledger map using sanitized `RoomaboutsSnapshotV1` configured-zone geometry without claiming zones are walls or rooms.
+- Add a separate non-interactive read-only map renderer. Preserve the existing `drawZones()` early return and every editor guard.
+- Add one pure, deterministic distance-sampled footprint model shared by DOM and Canvas rendering.
+- Render the six valid lifecycle/position-basis combinations truthfully; render online/degraded/offline/missing source health on separate anonymous station markers; keep uncertainty and posture orthogonal.
+- Add exact browser integration, accessibility, responsive, and reviewed screenshot checks after the toolchain decision is accepted.
+- Keep all texture procedural and all test data synthetic.
+
+#### Non-goals
+
+- No live Home Assistant instance, sensor input, household geometry, Recorder/storage proof, identity resolver, Bluetooth/chip support, distribution work, or cloud service.
+- No editor re-enablement, config-only resolver, calibration compatibility claim, or persisted theme setting. Those remain Phase 4 concerns.
+- No external/downloaded font, raster paper texture, remote image, audio, protected reference asset, realistic shoeprint, or fantasy-map reveal animation.
+- No rewrite of the inherited editor, renderer, coordinate system, snapshot schema, or Python/Deno gate.
+- No automated Firefox/WebKit matrix or Dockerized browser lane unless Chromium/hosted-runner evidence demonstrates a concrete gap. A named manual Firefox text-only-zoom check is still required.
+
+#### Verified constraints
+
+- `RadarRenderer.drawZones()` currently returns whenever `state.editing` is false. Removing that guard would expose editor-oriented SVG behavior in the read-only card; Phase 3 requires a distinct read-only path.
+- DOM targets use inline visual styles, so theme CSS alone cannot safely override lifecycle rendering.
+- DOM trails are update-cadence dependent while Canvas consumes `TargetFilter.history`; reshaping either existing circle trail into a footprint would leave the two modes semantically inconsistent.
+- The inherited read-only DOM accepts arbitrary inline visual configuration and the current `#click-layer` intercepts input with `touch-action: none`; Field Ledger must use an isolated subtree and explicitly restore dashboard scrolling.
+- Canvas mode hides the existing dots layer, so a dedicated renderer-independent semantic list is required for equivalent accessible output.
+- Sanitized include/exclude/entrance/stationary zones are configured regions, not a floor plan. Radar layouts may omit finite origins, and source-health records may be missing or unmatched; the read-only path must never invent geometry or a center station.
+- Phase 2 already guarantees that only confirmed, observed backend measurements may set `emitFootprint`, and clears renderer state on disconnect, map/generation change, explicit reset, remount, and final-empty state.
+- The fixture's synthetic map already contains a named include-zone rectangle and sanitized radar layout suitable for the first configured-field view.
+
+#### Shared contracts frozen before implementation
+
+1. **Theme activation and isolation:** Field Ledger is enabled only when `config.read_only === true && state.editing !== true`. `setConfig()` builds a typed read-only allowlist before assigning live config or calling the first inherited render/style/image sink; unsafe keys are never rendered and cannot request an asset. The dedicated subtree ignores `config.style`, `config.bg_image`, `fused_color`, inherited target/radar/zone colors, headings, fall/status/editor layers, and old trails. Snapshot/config copy uses `textContent`/safe DOM-SVG construction, never data-bearing HTML insertion. No new stored setting or theme-initiated request is added; the authorized Home Assistant snapshot stream remains the only data path.
+2. **Geometry and source safety:** read-only zones/stations are clipped to `0 0 100 100`, use no editor handles/listeners, and have no pointer input. Fewer-than-three-point/nonfinite polygons are skipped; fully outside geometry gets no label, and partially clipped geometry gets a label only adjacent to a valid visible intersection. A station exists only for explicit finite `origin_x`/`origin_y` inside closed `[0,100]`; missing, off-field, and unmatched sources share one bounded anonymous summary. Health joins internally by exact `sensorId`, while visible station numbering follows sanitized radar order and never exposes a source ID.
+3. **Valid state grammar:** each fixture frame passes `validateRoomaboutsSnapshot()`. Track pairs are tentative/observed, confirmed/observed, confirmed/interpolated, coasting/held, coasting/interpolated, or fading/last-seen. Ambiguity is tentative plus `source-unverified`; offline is source health only; posture/uncertainty never replace lifecycle facts.
+4. **Sampling boundary:** the store observes each track exactly once per accepted adapter result before the DOM/Canvas branch, deduplicated by generation, sequence, internal track, `observedAt`, and coordinates. Render loops, resize, redraw, screenshots, and mode switches call read-only `visible(now)` and never advance history. Backward replay seek explicitly resets/replaces the store before rendering an older logical frame.
+5. **Frozen footprint arithmetic and projection:** Euclidean `map-layout` spacing `4`, discontinuity `>25`, observation gap `>2000 ms`, epsilon `0.000001`, first side left, four-CSS-pixel lateral offset, 7×13-CSS-pixel glyph, at most 8 emissions per observation, 16 records per owner, 96 total, and exact `6000 ms` expiry use an injected monotonic presentation clock. `observedAt` is for order/gap/dedupe only. With the inherited nonuniform stage, one pure helper projects the map tangent by actual CSS width/height, derives screen rotation and left/right normal, and never resamples on resize. A regressing `visible()` fails closed without mutation/revival; `observe()` rejects and resets. The accepted visual specification freezes the complete arithmetic/projection/clock behavior.
+6. **Cleanup:** an ineligible accepted state clears that owner's anchor; owner removal clears its records immediately; every Phase 2 reset boundary clears all anchors and records. Records become logically invisible exactly at `6000 ms`. One store-owned timer requests earliest cleanup; physical deletion occurs at the first callback, accepted snapshot, visibility/resume hook, reset, or destroy at/after expiry. Re-observation seeds a new anchor and cannot bridge stale movement.
+7. **Accessibility and input:** an explicit `role="region"` named `Roomabouts field view` contains one bounded visually hidden `role="list"`, with an item per accepted track, placed station, and valid configured region plus one combined source summary in both render modes. Region entries expose type, optional literal name, and inside/partially-clipped/outside status without points or IDs. The exact bound is `128 + 64 + (4 × 128) + 1 = 705`; off-field tracks retain bounded `Outside field` semantics while visuals clip. Visual layers are `aria-hidden`. Field Ledger sets visual/click layers to `pointer-events: none` and `touch-action: auto`, installs no interception/capture, and permits page scrolling from a gesture that begins over the card.
+8. **Renderer parity:** DOM and Canvas consume the same immutable footprint records and state classification. CSS mode owns eight reviewed pixel goldens; Canvas owns semantic/cleanup assertions and one bounded smoke image, not a pixel-parity claim.
+9. **Browser evidence:** the committed manifest contains exactly nine goldens, fixed locale/timezone/DPR/region/readiness rules and zero pixel tolerance on the recorded Linux/font environment. Automated root-font/320-CSS-pixel checks are approximations; named manual Firefox text-only and Chrome native-zoom evidence is required.
+10. **Originality:** Field Ledger follows the visual-spec red lines. Technical survey language, mineral colors, system fonts, configured-region geometry, and abstract route marks dominate the composition.
+
+#### Expected files after approval
+
+Toolchain and browser lane:
+
+- `.node-version`
+- `package.json`
+- `package-lock.json`
+- `playwright.config.js`
+- narrow updates to `.github/workflows/quality.yml`, `.gitignore`, and `README.md`
+- `tests/browser/phase3-visual.spec.js`
+- `tests/browser/visual/manifest.js` with exactly nine reviewed Chromium/Linux goldens
+- `docs/security/browser-toolchain-inventory.md`
+
+Product and dependency-free tests:
 
 - `custom_components/radar_map_manager/www/roomabouts-theme.js`
 - `custom_components/radar_map_manager/www/roomabouts-trails.js`
-- narrow changes in `radar-map-card.js` and `radar-renderer.js`
-- `docs/decisions/0003-browser-test-toolchain.md`
-- Playwright browser tests, lockfile, and screenshot goldens after decision 0003 is accepted
+- narrow changes to `radar-map-card.js` and `radar-renderer.js`
+- manifest/import version bump from `1.4.0` to `1.5.0`
+- `tests/js/roomabouts-theme.test.js`
+- `tests/js/roomabouts-trails.test.js`
+- focused additions to `tests/js/radar-renderer.test.js`
+- focused fixture/scenario additions under `tests/browser/`
+- release-contract updates for eight frontend modules and the pinned browser toolchain
+- `docs/protocols/phase3-visual-acceptance.md`
+- `docs/protocols/phase3-native-zoom.md`
 
-Tasks:
+`radar-ui.js` is not an expected implementation file. Use the existing `#map-container` and theme module; any newly discovered need to edit the large editor stylesheet returns to coordinator review.
 
-- [ ] Establish original parchment, ink, room-line, label, radar, state, and focus tokens.
-- [ ] Create decision 0003, review its dependency/license/supply-chain impact, and obtain explicit user approval before adding Playwright or a Node/package-manager manifest.
-- [ ] Prefer procedural CSS/Canvas texture; any raster asset must be newly created and licensed for the repository.
-- [ ] Keep the technical editor recognizable and functional; apply Roomabouts primarily to the read-only map.
-- [ ] Replace dot trails in Roomabouts mode with alternating left/right footprint glyphs sampled by map distance, not frame count.
-- [ ] Bound footprint count and lifetime and clear them across lifecycle boundaries.
-- [ ] Render uncertainty, held/last-seen, offline, and fading states without implying current precise presence.
-- [ ] Respect reduced motion, high contrast, keyboard focus, zoom, and small/large dashboards.
-- [ ] Check fixed portrait, landscape, tablet, and wall-display viewports.
-- [ ] Perform an explicit originality review against protected franchise names, typography, symbols, copy, and artwork.
+#### Worktree and file ownership
 
-Exit gate: reviewed screenshots show the approved Roomabouts character; no protected asset is present; stale movement does not create footprints; editor and teardown checks pass.
+Each implementation lane receives a worktree only after decision 0003 and the Field Ledger specification are both Accepted. The coordinator owns shared contracts, integration order, the active plan, decisions, manifest/version convergence, and final acceptance.
+
+| Lane | Exclusive ownership | Must not edit |
+| --- | --- | --- |
+| Coordinator/contracts | active plan/decisions, manifest/import convergence, `tests/python/test_release_contract.py` | lane-owned implementation/tests except final narrow integration |
+| Theme/trails | `roomabouts-theme.js`, `roomabouts-trails.js`, their two Deno test files | card, renderer, workflow, release-contract and package files |
+| Renderer integration | `radar-renderer.js`, `radar-map-card.js`, focused renderer/card tests | theme/trail internals, release-contract test, package/workflow, fixture controller |
+| Browser/fixture | Node/package/Playwright files, Quality browser job, `docs/security/browser-toolchain-inventory.md`, fixture/scenarios, browser spec/goldens, visual/zoom protocols | production renderer/theme modules and `test_release_contract.py` |
+| Reviewers | findings only | all implementation files unless assigned a targeted remediation |
+
+No lane commits a shared-contract change. A required contract change stops downstream work and returns to the coordinator.
+
+#### Implementation waves
+
+##### Wave 3A — Accept and bootstrap the toolchain
+
+- [x] Obtain explicit user approval for both decision 0003 and the complete Field Ledger visual specification.
+- [x] Mark both documents Accepted with the approval date. Wave 3B and every product edit remained blocked until both records were accepted.
+- [ ] Temporarily bootstrap Node from the official Apple silicon `24.22.3` archive using the accepted literal SHA-256, no global/system install, and no ambient pnpm/Corepack substitution.
+- [ ] Add the exact Node `24.22.3`, npm `11.19.1`, `@playwright/test` `1.65.1`, Chromium headless shell `159.0.8154.6`/revision `1255`, FFmpeg revision `1013`, and both pinned-action contracts.
+- [ ] Generate and review lockfile-version-3 `package-lock.json`; allow exactly the root plus three Playwright packages with frozen registry URLs/integrities, no additional/optional package, lifecycle script, alternate host, or unqualified `npx` fetch.
+- [ ] Install with scripts disabled, automatic audit/fund submission disabled, and explicit task-specific cache/browser paths. Local Node archive/unpack, npm cache, and browser payload stay under the recorded temporary root; CI Node/npm may use setup-node's toolcache; the CLI lives only in ignored/release-excluded repository `node_modules/.bin`. Download only the explicit Playwright Chromium shell/FFmpeg payload. Separately run the disclosed high-severity advisory query and signature check with a token-free pinned-registry configuration; never auto-fix.
+- [ ] Record Node/npm/action/package/Chromium/FFmpeg/Ubuntu license and notice evidence, installed browser/FFmpeg and apt inventory/hashes, and residual CDN/floating-apt risk in `docs/security/browser-toolchain-inventory.md`.
+- [ ] The coordinator alone updates `tests/python/test_release_contract.py` so version/range/integrity drift, unpinned actions, unexpected packages/scripts, forbidden browser payloads, or toolchain/browser artifacts fail the release contract.
+- [ ] Constrain the required artifact action to a dedicated synthetic PNG/JSON directory, seven-day retention, no hidden/overwrite/missing files, and recorded artifact digest; never upload traces, video, reports, logs, source, Home Assistant data, or household geometry.
+- [ ] Prove the unchanged Python/Deno gate still passes when Node is absent.
+
+Exit: the lock tree and supply-chain diff are reviewed, the separate browser job can launch the loopback fixture, and no product module has changed.
+
+##### Wave 3B — Pure theme and footprint TDD
+
+- [ ] Add failing Deno tests for theme activation, frozen token/contrast schema, deterministic procedural CSS, isolated read-only classes, and prohibited inherited styles, external URL/font/raster behavior, glow/pulse/emoji/alarm copy.
+- [ ] Implement the smallest frozen theme/token module that satisfies those tests.
+- [ ] Add failing footprint tests for the complete accepted algorithm: first anchor; four-unit cadence-invariant Euclidean spacing; residual/corner interpolation; map heading; portrait/landscape/resize screen projection; strict side alternation; epsilon/zero-length; exact dedupe and out-of-order rejection; 2000-ms gap and 25-unit discontinuity reset; eight/16/96 caps; fail-closed `visible()` and reset-on-`observe()` clock regression; exact logical expiry at 5999/6000/6001 ms; on-time/delayed-callback/next-observation/resume/reset/destroy physical cleanup; timer-count/handle cancellation; and no stale bridge.
+- [ ] Implement the pure footprint store with injected clock and scheduler, at most one owned expiry timer, and no DOM, Canvas, Home Assistant, network, or persistence dependency.
+
+Exit: pure modules pass in Deno, invalid/nonfinite input fails closed, and an independent reviewer approves the arithmetic and lifecycle rules.
+
+##### Wave 3C — Read-only map and DOM integration
+
+- [ ] Import the modules and bump manifest/frontend query versions together.
+- [ ] Before the first inherited render/sink, make `setConfig()` construct and assign a typed Field Ledger read-only allowlist; then activate the isolated subtree only for that view and remove it cleanly on teardown/mode changes.
+- [ ] Add `drawRoomaboutsMap()` as a separate non-interactive clipped SVG path for configured include/exclude/entrance/stationary regions, bounded labels, and anonymous survey stations; skip degenerate/nonfinite/fully outside display, label only valid visible intersections, treat outside origins as unplaced, and never invent/clamp a position or architectural meaning.
+- [ ] In renderer-owned tests and code, join station health internally, assign frame-local station numbers, combine missing/unmatched/paused/unplaced/off-field cases conservatively, and keep source identifiers out of UI and semantics.
+- [ ] Add explicit Roomabouts DOM target branches for all six validator-compatible lifecycle/position pairs with typed state classes/data and neutral posture/uncertainty copy.
+- [ ] Build every snapshot/config-derived label with `textContent` and safe DOM/SVG primitives; prohibit data-bearing HTML insertion and prove hostile zone-name markup/event/URL strings remain literal with zero node injection or request attempt.
+- [ ] Render abstract DOM survey steps from the shared footprint store; do not convert the inherited trail circles.
+- [ ] Extend fixtures with validated all-sources-offline and composite cases using all six valid lifecycle/position track pairs plus a separate offline station; every frame must pass the production snapshot validator before rendering.
+
+Exit: the real card visibly shows configured regions, placed/anonymous station state, truthful track markers, and deterministic footprints; no invented floor plan, editor affordance, or source ID appears.
+
+##### Wave 3D — Canvas parity and accessibility behavior
+
+- [ ] Make Canvas consume the same footprint records and shared non-square projection helper to draw the same forefoot/heel primitives; prove portrait/landscape/live-resize DOM parity without resampling.
+- [ ] Add the named `role="region"` and renderer-independent visually hidden semantic `role="list"`, with one item per accepted track, placed station, and valid configured region plus one combined source summary, capped at 705 in both modes; visual layers remain `aria-hidden` and expose no internal ID or coordinate.
+- [ ] Apply lifecycle shape/wording parity where Canvas text is shown and prove semantic-list parity across CSS↔Canvas switches.
+- [ ] Disable nonessential interpolation/pulse/fade behavior under reduced motion.
+- [ ] Add forced-colors/system-color rules without `forced-color-adjust: none`.
+- [ ] Scope read-only click/SVG/Canvas/dot/visual layers to `pointer-events: none` and `touch-action: auto`; prove no prevent-default/capture/editor/wheel interception and that a phone drag starting over the map scrolls the page.
+- [ ] Verify focus, 200% root-font and 320-CSS-pixel automated approximations, and no surrounding-page horizontal overflow.
+
+Exit: DOM/Canvas semantic and cleanup tests pass; reduced motion and forced colors remain truthful without color-only distinctions.
+
+##### Wave 3E — Deterministic browser and screenshot evidence
+
+- [ ] Configure one-worker Chromium tests with exact `en-US`/UTC/light/DPR-1 environment, finite timeouts, loopback-only server, blocked external requests, video/trace off, font/fixture/subscriber/two-frame readiness, and no arbitrary sleeps.
+- [ ] Add functional tests for initial configured-field render, all six track pairings, observed walk, held/no-new-print, last-seen, generation/backward-seek reset, three tracks, exact/off/far-outside geometry and stations, named/unnamed/clipped/omitted configured regions, offline/missing/unplaced/paused sources, pre-render hostile config/zone names, 705-item semantic bound, delayed/resume expiry and clock regression, teardown/remount, redraw/resize/screenshot/mode-switch sampler invariance, semantic/projection parity, scrolling, and page-origin console/network failures.
+- [ ] Commit the exact nine-entry manifest: observed scene at five viewports, tablet six-track/offline-station composite, tablet forced-colors composite, tablet reduced-motion walk, and tablet Canvas smoke. Capture `#card-host` with CSS scale, animations disabled, caret hidden, and exact zero-pixel tolerance.
+- [ ] Generate Linux candidate goldens only through an explicit manual dispatch/update command. Upload synthetic candidates with the pinned artifact action, review them, then commit them manually; normal CI remains compare-only.
+- [ ] Record runner/OS, browser/FFmpeg/Node/npm/Playwright and font/render-library versions, commands, expected/observed results, and golden SHA-256 values in the visual-acceptance protocol.
+- [ ] Execute the named native-zoom protocol: Firefox 200% text-only and Chrome/Chromium 400% native zoom at measured `320 ± 1` CSS-pixel inner width. Treat it as manual evidence, not a Playwright emulation claim.
+
+Exit: two clean CI runs compare the same reviewed goldens successfully, with zero page-origin console error, external request, orphan subscriber, or orphan print.
+
+##### Wave 3F — Independent acceptance
+
+- [ ] Run a fresh originality/accessibility review against the visual red-line list and screenshots.
+- [ ] Run a fresh security/privacy/lifecycle review against the raw diff and package lock.
+- [ ] Run the production-readiness diff audit: status, staged/unstaged/untracked files, release archive, full tests, and critical failure paths.
+- [ ] Fix confirmed findings surgically; return any architecture/contract change to approval.
+
+Exit: reviewers return `APPROVE`, all evidence is recorded, the branch is clean, and no unsupported Home Assistant/editor/hardware claim is made.
+
+#### Requirement-to-evidence trace
+
+| Requirement | Automated evidence | Manual/review evidence |
+| --- | --- | --- |
+| Original visual system | token/CSS/prohibited-pattern tests; goldens | originality review |
+| Useful read-only map | configured-zone/station SVG structure, clipping/degenerate cases, and no-pointer tests; screenshots | fixed-viewport review |
+| Accessible configured regions | type/name/clipping semantic items, 705-item bound, CSS/Canvas parity, cleanup | screen-reader/accessibility review |
+| Truthful uncertainty | lifecycle class/ARIA tests; state-composite screenshot | accessibility review |
+| Distance-based footprints | cadence-invariance and boundary Deno tests | observed/held screenshot sequence |
+| Bounded cleanup | owner/reset/disconnect/remount tests in Deno and browser | diagnostics/subscriber record |
+| Motion/contrast/reflow | media emulation, focus, zoom, overflow browser assertions | forced-color/reduced-motion review |
+| No privacy/security regression | external-request block, source-ID absence, release-contract tests | package-lock and diff audit |
+| Editor compatibility boundary | theme activation/no-handle tests; no editor-file diff | Phase 4 retains functional editor verification |
+
+#### Failure handling and rollback
+
+- Any protected-similarity finding blocks acceptance; remove the offending visual/copy rather than rationalizing it.
+- Any footprint emitted from a non-observed state, stale bridge, owner leak, or reset boundary blocks the phase and rolls back renderer wiring to the last Phase 2 revision.
+- Any editor handle/listener in read-only mode blocks the phase. Do not weaken the editor guard to obtain configured geometry.
+- Any external browser request or source ID in UI/accessibility/screenshots stops the browser lane and triggers a fixture/report review.
+- A package-lock or browser revision mismatch blocks CI. Do not use a floating version to restore green.
+- If screenshot stability fails twice on the pinned hosted runner, collect evidence and return with a Docker/digest proposal; do not mask broad pixel differences with a large tolerance.
+- Rollback removes Phase 3 modules, Node/browser files/job, fixture additions, version bump, repository-local `node_modules`, and only the recorded task-specific Node-unpack/npm-cache/browser-payload directories. Accepted decisions/specifications remain historical records; a replacement supersedes rather than deletes them. Phase 2 remains the known-good presentation baseline.
+
+#### Unresolved assumptions and residual risks
+
+- Six-second expiry and eight/16/96 emission/retention caps are frozen for Phase 3. Any change requires a revised accepted visual specification and golden manifest before implementation.
+- Sanitized zone polygons are displayed only as configured regions. They do not establish walls, rooms, doors, or a floor plan; true architectural geometry requires a later explicit contract.
+- System-font rendering is stable only within the pinned Linux/Chromium golden environment; macOS screenshots are manual review evidence, not CI baselines.
+- Forced-colors screenshot fidelity depends on Chromium emulation; keyboard/focus and semantic assertions remain the primary evidence.
+- Browser suspension/throttling can delay physical deletion of at most 96 expired in-memory footprint records beyond the exact six-second logical visibility cutoff. The first callback, accepted snapshot, visibility/resume event, reset, or destroy must purge them; they are never rendered, exposed, logged, or persisted while delayed.
+- Phase 3 preserves but does not execute the disabled editor. Actual add/edit/calibration compatibility remains unverified until Phase 4 supplies a config-only resolver and real Home Assistant test instance.
+
+Exit gate: the approved Field Ledger view renders sanitized configured-region geometry, anonymous stations, and anonymous tracks at all fixed viewports; observed-only survey steps are cadence-invariant and bounded; stale movement creates no print; reset/teardown leaves no state; accessibility, scrolling, manual zoom, and originality reviews approve the evidence; the pinned browser and dependency-free gates pass twice; no protected asset or runtime/browser privacy regression is present; and Phase 4 limitations remain explicit.
 
 ### Phase 4 — Home Assistant no-sensor smoke
 
@@ -513,6 +688,10 @@ The first exact-plan review returned changes required. Its critical and major fi
 
 Final re-review verdict on 2026-11-15: **APPROVE.** No critical or major finding remains. A suggested duplicate fixture-list cleanup was checked against the current file and no duplicate exists; the map-contract wording was clarified to distinguish target-free geometry from coordinate-free state.
 
+Phase 3 planning received three independent final verdicts on 2026-11-15: browser-toolchain/supply-chain **APPROVE**, originality/accessibility **APPROVE**, and fresh critical-plan re-review **APPROVE**. All review findings are incorporated. The user accepted decision 0003 and the Field Ledger specification on 2026-11-15, opening Wave 3A implementation.
+
 ## User approval record
 
 Approved on 2026-11-15. The user authorized implementation, team delegation, local commits, and pushing the reviewed governance baseline. Approval covers decision 0002; `RoomaboutsObservationV1` before fusion; administrator-only coordinate snapshots for the first proof; pinned dependency-free Deno/unittest pure-module testing; manual-only first installation; deferring Playwright to decision 0003; deferring real capture to decision 0004; the evidence-backed pairing rule and thresholds in decision 0005; synthetic-only fixtures before sensor review; and the original non-franchise visual direction.
+
+Phase 3 approval on 2026-11-15 covers accepted decision 0003 and the complete Field Ledger visual/behavioral specification. The user also explicitly prohibited opening pull requests or other contributions to the original upstream owner; all implementation remains local or in `JGVB/Roomabouts` unless the user later changes that instruction.
