@@ -53,3 +53,181 @@ jobs:
 
       - name: Run JavaScript tests
         run: deno test --no-config tests/js tests/browser/fake-hass.test.js
+
+  browser:
+    name: Pinned Chromium checks
+    needs: quality
+    runs-on: ubuntu-24.04
+    env:
+      npm_config_cache: ${{ runner.temp }}/roomabouts-npm-cache
+      npm_config_registry: https://registry.npmjs.org/
+      npm_config_userconfig: ${{ runner.temp }}/roomabouts-empty.npmrc
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/roomabouts-playwright-browsers
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          check-latest: false
+          package-manager-cache: false
+
+      - name: Isolate npm configuration
+        run: |
+          install -m 600 /dev/null "$npm_config_userconfig"
+          test "$(npm config get registry)" = 'https://registry.npmjs.org/'
+          test "$(npm config get proxy)" = 'null'
+          test "$(npm config get https-proxy)" = 'null'
+          test "$(npm config get userconfig)" = "$npm_config_userconfig"
+          test "$(npm config get cache)" = "$npm_config_cache"
+          test ! -e .npmrc
+          test -z "${NODE_AUTH_TOKEN:-}"
+          test -z "${NPM_TOKEN:-}"
+          test -z "${NPM_CONFIG__AUTH:-}"
+          test -z "${NPM_CONFIG__AUTHTOKEN:-}"
+          test -z "${PLAYWRIGHT_DOWNLOAD_HOST:-}"
+          test -z "${PLAYWRIGHT_CHROMIUM_DOWNLOAD_HOST:-}"
+
+      - name: Verify Node and npm
+        run: |
+          test "$(node --version)" = 'v24.22.3'
+          test "$(npm --version)" = '11.19.1'
+
+      - name: Install locked packages
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Verify locked package and browser registry
+        run: |
+          test "$(./node_modules/.bin/playwright --version)" = 'Version 1.65.1'
+          python3 tests/browser/verify_toolchain.py packages
+
+      - name: Review locked advisories and signatures
+        run: |
+          npm audit --package-lock-only --audit-level=high
+          npm audit signatures
+
+      - name: Record pre-install apt inventory
+        run: |
+          mkdir -p "$RUNNER_TEMP/roomabouts-toolchain-evidence"
+          dpkg-query -W -f='${binary:Package}\t${Version}\n' \
+            | LC_ALL=C sort \
+            > "$RUNNER_TEMP/roomabouts-toolchain-evidence/apt-before.tsv"
+
+      - name: Install pinned Chromium shell
+        run: npm run browser:install:ci
+
+      - name: Verify installed browser inventory
+        run: |
+          ./node_modules/.bin/playwright install --list
+          python3 tests/browser/verify_toolchain.py browsers \
+            > "$RUNNER_TEMP/roomabouts-toolchain-evidence/browser-payload.json"
+
+      - name: Record Linux toolchain evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/roomabouts-toolchain-evidence"
+          dpkg-query -W -f='${binary:Package}\t${Version}\n' \
+            | LC_ALL=C sort \
+            > "$evidence/apt-after.tsv"
+          comm -13 "$evidence/apt-before.tsv" "$evidence/apt-after.tsv" \
+            > "$evidence/apt-added.tsv"
+          ffmpeg="$(find "$PLAYWRIGHT_BROWSERS_PATH/ffmpeg-1013" \
+            -type f -name 'ffmpeg*' -perm -111 -print -quit)"
+          test -n "$ffmpeg"
+          "$ffmpeg" -version > "$evidence/ffmpeg-version.txt" 2>&1
+          "$ffmpeg" -buildconf > "$evidence/ffmpeg-buildconf.txt" 2>&1
+          "$ffmpeg" -L > "$evidence/ffmpeg-license.txt" 2>&1
+          if grep -q -- '--enable-gpl' "$evidence/ffmpeg-buildconf.txt"; then
+            gpl='present'
+          else
+            gpl='absent'
+          fi
+          if grep -q -- '--enable-nonfree' "$evidence/ffmpeg-buildconf.txt"; then
+            nonfree='present'
+          else
+            nonfree='absent'
+          fi
+          grep -Ei \
+            '^(fontconfig|libfontconfig|libfreetype|libharfbuzz|fonts-dejavu|fonts-liberation)' \
+            "$evidence/apt-after.tsv" > "$evidence/font-render.tsv" || true
+          {
+            echo '## Roomabouts Linux browser-toolchain evidence'
+            echo
+            echo "Runner image: ${ImageOS:-unknown} ${ImageVersion:-unknown}"
+            echo
+            echo '### OS release'
+            echo '```text'
+            cat /etc/os-release
+            echo '```'
+            echo
+            echo '### Browser payload hashes and notice paths'
+            echo '```json'
+            cat "$evidence/browser-payload.json"
+            echo '```'
+            echo
+            echo "FFmpeg --enable-gpl: $gpl; --enable-nonfree: $nonfree"
+            echo '```text'
+            cat "$evidence/ffmpeg-version.txt"
+            cat "$evidence/ffmpeg-buildconf.txt"
+            cat "$evidence/ffmpeg-license.txt"
+            echo '```'
+            echo
+            echo '### Packages added by browser dependency installation'
+            echo '```text'
+            cat "$evidence/apt-added.tsv"
+            echo '```'
+            echo
+            echo '### Complete installed package inventory'
+            echo '```text'
+            cat "$evidence/apt-after.tsv"
+            echo '```'
+            echo
+            echo '### Font/render package versions'
+            echo '```text'
+            cat "$evidence/font-render.tsv"
+            echo '```'
+            echo
+            echo '### Added-package notice roots'
+            echo '```text'
+            while IFS=$'\t' read -r package version; do
+              base="${package%%:*}"
+              if test -d "/usr/share/doc/$base"; then
+                printf '%s\t%s\t%s\n' "$package" "$version" "/usr/share/doc/$base"
+              fi
+            done < "$evidence/apt-added.tsv"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Run browser tests
+        run: npm run test:browser
+
+      - name: Collect bounded synthetic failure evidence
+        if: failure()
+        run: >-
+          python3 tests/browser/build_synthetic_artifacts.py
+          test-results/playwright
+          "${{ runner.temp }}/roomabouts-browser-artifacts"
+
+      - name: Upload bounded synthetic failure evidence
+        if: failure()
+        id: browser-artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: roomabouts-browser-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/roomabouts-browser-artifacts
+          retention-days: 7
+          include-hidden-files: false
+          if-no-files-found: error
+          overwrite: false
+
+      - name: Record synthetic artifact digest
+        if: failure() && steps.browser-artifact.outcome == 'success'
+        run: >-
+          printf 'Browser failure artifact digest: `%s`\n'
+          '${{ steps.browser-artifact.outputs.artifact-digest }}'
+          >> "$GITHUB_STEP_SUMMARY"
