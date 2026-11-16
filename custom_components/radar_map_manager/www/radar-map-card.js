@@ -1,11 +1,24 @@
-import { RadarMath } from './radar-math.js?v=1.4.0';
-import { RadarUI } from './radar-ui.js?v=1.4.0';
-import { RadarRenderer } from './radar-renderer.js?v=1.4.0';
-import { RadarEditor } from './radar-editor.js?v=1.4.0';
-import { RoomaboutsPresentationAdapter } from './roomabouts-presentation.js?v=1.4.0';
+import { RadarMath } from './radar-math.js?v=1.5.0';
+import { RadarUI } from './radar-ui.js?v=1.5.0';
+import { RadarRenderer } from './radar-renderer.js?v=1.5.0';
+import { RadarEditor } from './radar-editor.js?v=1.5.0';
+import { RoomaboutsPresentationAdapter } from './roomabouts-presentation.js?v=1.5.0';
+import {
+    ROOMABOUTS_FIELD_LEDGER_CSS,
+    isRoomaboutsReadOnly,
+    sanitizeRoomaboutsReadOnlyConfig,
+} from './roomabouts-theme.js?v=1.5.0';
+import { RoomaboutsTrailStore } from './roomabouts-trails.js?v=1.5.0';
 
 const EMPTY_HASS_STATES = Object.freeze({});
+const EMPTY_ROOMABOUTS_TRAIL_RECORDS = Object.freeze([]);
 const LANGUAGE_TAG = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
+const ROOMABOUTS_RESETTING_REJECTION_REASONS = new Set([
+    'invalid-snapshot',
+    'logical-time-regression',
+    'alias-binding-conflict',
+    'track-lifetime-limit',
+]);
 
 class RadarMapCardNative extends HTMLElement {
     constructor() {
@@ -48,7 +61,13 @@ class RadarMapCardNative extends HTMLElement {
         this._streamUnsubscribe = null;
         this._streamSubscribing = false;
         this._subscriptionEpoch = 0;
-        this._isDisconnected = false;
+        this._isDisconnected = true;
+        this._roomaboutsPresentation = null;
+        this._roomaboutsTrailStore = null;
+        this._roomaboutsAcceptingPresentation = false;
+        this._roomaboutsResumeListenersAttached = false;
+        this._boundRoomaboutsVisibilityChange = this._handleRoomaboutsVisibilityChange.bind(this);
+        this._boundRoomaboutsPageShow = this._handleRoomaboutsPageShow.bind(this);
         this.resizeObserver = new ResizeObserver(entries => {
             for (let entry of entries) {
                 const { width, height } = entry.contentRect;
@@ -58,6 +77,127 @@ class RadarMapCardNative extends HTMLElement {
                 }
             }
         });
+        this._ensureRoomaboutsTrailStore();
+    }
+    _createRoomaboutsTrailStore() {
+        return new RoomaboutsTrailStore({
+            clock: () => performance.now(),
+            setTimeout: (callback, delay) => window.setTimeout(callback, delay),
+            clearTimeout: (handle) => window.clearTimeout(handle),
+            onChange: () => this._handleRoomaboutsTrailStoreChange(),
+        });
+    }
+    _ensureRoomaboutsTrailStore() {
+        if (!this._roomaboutsTrailStore) {
+            this._roomaboutsTrailStore = this._createRoomaboutsTrailStore();
+        }
+        return this._roomaboutsTrailStore;
+    }
+    _handleRoomaboutsTrailStoreChange() {
+        if (this._roomaboutsAcceptingPresentation
+            || this._isDisconnected
+            || !this.isCreated
+            || !this.state.hass
+            || !this._isRoomaboutsFieldView()) return;
+        this._drawCurrentView(this.state.hass);
+    }
+    _isRoomaboutsFieldView() {
+        return isRoomaboutsReadOnly(this.config, this.state);
+    }
+    _createRoomaboutsShell() {
+        this.ui.injectStyles();
+
+        let style = this.shadowRoot.getElementById('roomabouts-field-ledger-styles');
+        if (!style) {
+            style = document.createElement('style');
+            style.id = 'roomabouts-field-ledger-styles';
+            this.shadowRoot.appendChild(style);
+        }
+        style.textContent = ROOMABOUTS_FIELD_LEDGER_CSS;
+
+        const root = document.createElement('div');
+        root.id = 'root';
+        root.classList.add('roomabouts-readonly');
+        root.setAttribute('role', 'region');
+        root.setAttribute('aria-label', 'Roomabouts field view');
+
+        const mapContainer = document.createElement('div');
+        mapContainer.id = 'map-container';
+        mapContainer.style.zIndex = '4';
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.id = 'svg-canvas';
+        svg.setAttribute('viewBox', '0 0 100 100');
+        svg.setAttribute('preserveAspectRatio', 'none');
+
+        const canvas = document.createElement('canvas');
+        canvas.id = 'rmm-canvas';
+
+        const dotsLayer = document.createElement('div');
+        dotsLayer.id = 'dots-layer';
+
+        const clickLayer = document.createElement('div');
+        clickLayer.id = 'click-layer';
+
+        root.appendChild(mapContainer);
+        const visuals = [svg, canvas, dotsLayer, clickLayer];
+        for (const visual of visuals) {
+            visual.setAttribute('aria-hidden', 'true');
+            root.appendChild(visual);
+        }
+        this.shadowRoot.appendChild(root);
+        return root;
+    }
+    _activateRoomaboutsView() {
+        if (!this._isRoomaboutsFieldView()) return null;
+        let root = this.shadowRoot.getElementById('root');
+        if (!root) root = this._createRoomaboutsShell();
+        root.classList.add('roomabouts-readonly');
+        root.setAttribute('role', 'region');
+        root.setAttribute('aria-label', 'Roomabouts field view');
+        this.isCreated = true;
+        return root;
+    }
+    _deactivateRoomaboutsView() {
+        this._detachRoomaboutsResumeListeners();
+        const root = this.shadowRoot.getElementById('root');
+        const themeStyle = this.shadowRoot.getElementById('roomabouts-field-ledger-styles');
+        if (themeStyle) themeStyle.remove();
+        if (root) root.remove();
+        this.isCreated = false;
+    }
+    _attachRoomaboutsResumeListeners() {
+        if (this._roomaboutsResumeListenersAttached
+            || !this.isConnected
+            || !this._isRoomaboutsFieldView()) return;
+        document.addEventListener('visibilitychange', this._boundRoomaboutsVisibilityChange);
+        window.addEventListener('pageshow', this._boundRoomaboutsPageShow);
+        this._roomaboutsResumeListenersAttached = true;
+    }
+    _detachRoomaboutsResumeListeners() {
+        if (!this._roomaboutsResumeListenersAttached) return;
+        document.removeEventListener('visibilitychange', this._boundRoomaboutsVisibilityChange);
+        window.removeEventListener('pageshow', this._boundRoomaboutsPageShow);
+        this._roomaboutsResumeListenersAttached = false;
+    }
+    _handleRoomaboutsVisibilityChange() {
+        if (document.visibilityState === 'visible') this._expireRoomaboutsTrails();
+    }
+    _handleRoomaboutsPageShow() {
+        this._expireRoomaboutsTrails();
+    }
+    _expireRoomaboutsTrails() {
+        if (!this._isRoomaboutsFieldView() || !this._roomaboutsTrailStore) return;
+        const result = this._roomaboutsTrailStore.expire();
+        if (!result.ok) {
+            this.renderer.setRoomaboutsTrailRecords(EMPTY_ROOMABOUTS_TRAIL_RECORDS);
+            this._roomaboutsTrailStore.reset(result.reason);
+        }
+        this._queueRender();
+    }
+    _updateInheritedStatus() {
+        if (this._isRoomaboutsFieldView()) return;
+        this.ui.updateStatus(this.state, this.config);
     }
     set layout(val) {
         this._ha_layout = val;
@@ -70,8 +210,11 @@ class RadarMapCardNative extends HTMLElement {
     }
     connectedCallback() {
         this._isDisconnected = false;
-        if (!this.isCreated) return;
-        const root = this.shadowRoot.getElementById('root');
+        if (!this.config) return;
+        this._ensureRoomaboutsTrailStore();
+        const root = this._activateRoomaboutsView();
+        if (!root) return;
+        this._attachRoomaboutsResumeListeners();
         if (root) this.resizeObserver.observe(root);
         this.startHeartbeat();
         const connection = this.state.rawHass?.connection;
@@ -82,6 +225,7 @@ class RadarMapCardNative extends HTMLElement {
     }
     disconnectedCallback() {
         this._isDisconnected = true;
+        this._detachRoomaboutsResumeListeners();
         this.resizeObserver.disconnect();
         if (this.retryTimer) clearInterval(this.retryTimer);
         this.retryTimer = null;
@@ -89,7 +233,12 @@ class RadarMapCardNative extends HTMLElement {
         this._renderFrameId = null;
         this.isRendering = false;
         this._teardownStream();
-        this._clearPresentation('disconnect', { destroyRenderer: true, redraw: false });
+        this._clearPresentation('disconnect', {
+            destroyRenderer: true,
+            destroyTrailStore: true,
+            redraw: false,
+        });
+        this._deactivateRoomaboutsView();
     }
     static getStubConfig() {
         return { type: "custom:radar-map-card", map_group: "default" };
@@ -98,16 +247,29 @@ class RadarMapCardNative extends HTMLElement {
         return 5;
     }
     setConfig(config) {
-        this.config = { ...config, read_only: true };
-        this.state.mapGroup = this.config.map_group || "default";
+        const nextConfig = sanitizeRoomaboutsReadOnlyConfig(config);
+        const previousMapGroup = this.config?.map_group;
+        const mapGroupChanged = previousMapGroup !== undefined
+            && previousMapGroup !== nextConfig.map_group;
+        this.config = nextConfig;
+        this.state.mapGroup = nextConfig.map_group;
         this.state.editing = false;
-        if (this.isCreated) return;
-        this.ui.render(this.state, this.config);
-        this.isCreated = true;
-        const root = this.shadowRoot.getElementById('root');
-        if (root) this.resizeObserver.observe(root);
-        if (!this.config.read_only) this.initLogic();
-        this.startHeartbeat();
+        if (mapGroupChanged) {
+            this._clearPresentation('map-change', { redraw: false });
+        }
+        this._ensureRoomaboutsTrailStore();
+        const root = this._activateRoomaboutsView();
+        if (!root) return;
+        if (this.isConnected) {
+            this._attachRoomaboutsResumeListeners();
+            this.resizeObserver.observe(root);
+            this.startHeartbeat();
+            const connection = this.state.rawHass?.connection;
+            if (connection && connection.connected !== false) {
+                this._ensureStreamSubscription(this.state.rawHass);
+            }
+        }
+        this._queueRender();
     }
     set hass(h) {
         const sanitizedHass = this.getMockHass(h);
@@ -125,15 +287,17 @@ class RadarMapCardNative extends HTMLElement {
         this._setConnectionState(isConnected);
         if (isConnected) this._ensureStreamSubscription(sanitizedHass);
         if (this.isCreated) {
-            if (this.state.editMode === 'layout' && !this.state.dragState.isDragging) {
-                this.ui.updateLayoutInputs(this.state, sanitizedHass);
-            }
-            if (this.state.editMode === 'settings') {
-                this.ui.updateSettingsInputs(this.state);
+            if (!this._isRoomaboutsFieldView()) {
+                if (this.state.editMode === 'layout' && !this.state.dragState.isDragging) {
+                    this.ui.updateLayoutInputs(this.state, sanitizedHass);
+                }
+                if (this.state.editMode === 'settings') {
+                    this.ui.updateSettingsInputs(this.state);
+                }
             }
             this._queueRender();
             if (!this.isRendering && !this.state.dragState.isDragging) {
-                this.ui.updateStatus(this.state, this.config);
+                this._updateInheritedStatus();
             }
         }
     }
@@ -143,10 +307,26 @@ class RadarMapCardNative extends HTMLElement {
         this._renderFrameId = requestAnimationFrame(() => {
             this._renderFrameId = null;
             if (!this._isDisconnected) {
-                this.renderer.draw(this.state, this.config, this.state.hass);
+                this._drawCurrentView(this.state.hass);
             }
             this.isRendering = false;
         });
+    }
+    _drawCurrentView(hass) {
+        if (this._isRoomaboutsFieldView()) {
+            if (!this._roomaboutsTrailStore) {
+                this.renderer.setRoomaboutsTrailRecords(EMPTY_ROOMABOUTS_TRAIL_RECORDS);
+            } else {
+                const visible = this._roomaboutsTrailStore.visible();
+                if (visible.ok) {
+                    this.renderer.setRoomaboutsTrailRecords(visible.records);
+                } else {
+                    this.renderer.setRoomaboutsTrailRecords(EMPTY_ROOMABOUTS_TRAIL_RECORDS);
+                    this._roomaboutsTrailStore.reset(visible.reason);
+                }
+            }
+        }
+        this.renderer.draw(this.state, this.config, hass);
     }
     _once(unsubscribe) {
         let called = false;
@@ -171,7 +351,13 @@ class RadarMapCardNative extends HTMLElement {
     }
     _ensureStreamSubscription(hass) {
         const connection = hass?.connection;
-        if (!connection || this._streamUnsubscribe || this._streamSubscribing || this._isDisconnected) return;
+        if (!connection
+            || !this.isConnected
+            || !this.config
+            || !this._isRoomaboutsFieldView()
+            || this._streamUnsubscribe
+            || this._streamSubscribing
+            || this._isDisconnected) return;
         const epoch = ++this._subscriptionEpoch;
         this._streamSubscribing = true;
         let pending;
@@ -209,12 +395,17 @@ class RadarMapCardNative extends HTMLElement {
     }
     handleNewData(rawData) {
         const presentation = this.presentationAdapter.ingest(rawData);
-        if (!presentation.accepted) return;
-        if (presentation.reset) {
-            this._clearPresentation(presentation.resetReason, {
-                resetAdapter: false,
-                redraw: false,
-            });
+        if (!presentation.accepted) {
+            if (ROOMABOUTS_RESETTING_REJECTION_REASONS.has(presentation.reason)) {
+                this._clearPresentation(presentation.reason, {
+                    resetAdapter: false,
+                });
+            }
+            return;
+        }
+        if (this._isRoomaboutsFieldView()) {
+            this._acceptRoomaboutsPresentation(presentation);
+            return;
         }
         if (this.ignoreUpdatesUntil > 0 && Date.now() < this.ignoreUpdatesUntil) return;
         const isFrozen = this.state.calibration && this.state.calibration.active;
@@ -224,14 +415,38 @@ class RadarMapCardNative extends HTMLElement {
             this.state.fused_targets = presentation.tracks.map(track => this._toFusedTarget(track));
             this.state.sourceHealth = presentation.sourceHealth;
             this.state.historyStack = [];
-            const renderMode = this.state.data?.global_config?.target_render_mode || this.config.target_render_mode || 'css';
+            const renderMode = this.config.target_render_mode || 'css';
             if (renderMode === 'canvas' && (this.state.editMode === 'zone' || this.state.editMode === 'settings' || !this.state.editing)) {
                 this.renderer.updateFusedTargets(this.state.fused_targets || []);
             }
             this.state.hass = this.getMockHass(this.state.rawHass);
-            this.renderer.draw(this.state, this.config, this.state.hass);
-            this.ui.updateStatus(this.state, this.config);
+            this._drawCurrentView(this.state.hass);
+            this._updateInheritedStatus();
         }
+    }
+    _acceptRoomaboutsPresentation(presentation) {
+        const trailStore = this._ensureRoomaboutsTrailStore();
+        this._roomaboutsAcceptingPresentation = true;
+        try {
+            const trailResult = trailStore.observeAccepted(presentation);
+            if (!trailResult.ok) {
+                this.renderer.setRoomaboutsTrailRecords(EMPTY_ROOMABOUTS_TRAIL_RECORDS);
+                trailStore.reset(trailResult.reason);
+            }
+            if (presentation.reset) {
+                this._clearPresentation(presentation.resetReason, {
+                    resetAdapter: false,
+                    resetTrailStore: false,
+                    redraw: false,
+                });
+            }
+        } finally {
+            this._roomaboutsAcceptingPresentation = false;
+        }
+        this._roomaboutsPresentation = presentation;
+        this.renderer.acceptRoomaboutsPresentation(presentation);
+        this.state.hass = this.getMockHass(this.state.rawHass);
+        this._drawCurrentView(this.state.hass);
     }
     _toInheritedMapState(map) {
         const data = {
@@ -280,12 +495,21 @@ class RadarMapCardNative extends HTMLElement {
     }
     _clearPresentation(reason, {
         resetAdapter = true,
+        resetTrailStore = true,
+        destroyTrailStore = false,
         destroyRenderer = false,
         redraw = true,
     } = {}) {
         if (resetAdapter) {
             if (reason === 'disconnect') this.presentationAdapter.disconnect();
             else this.presentationAdapter.reset(reason);
+        }
+        this._roomaboutsPresentation = null;
+        if (destroyTrailStore && this._roomaboutsTrailStore) {
+            this._roomaboutsTrailStore.destroy();
+            this._roomaboutsTrailStore = null;
+        } else if (resetTrailStore && this._roomaboutsTrailStore) {
+            this._roomaboutsTrailStore.reset(reason);
         }
         this.state.data = this._emptyPresentationData();
         this.state.fused_targets = [];
@@ -297,7 +521,7 @@ class RadarMapCardNative extends HTMLElement {
         this.state.editing = false;
         if (destroyRenderer) this.renderer.destroy();
         else this.renderer.clearRuntime();
-        if (this.isCreated) this.ui.updateStatus(this.state, this.config);
+        if (this.isCreated) this._updateInheritedStatus();
         if (redraw) this._queueRender();
     }
     getMockHass(h) {
@@ -314,6 +538,7 @@ class RadarMapCardNative extends HTMLElement {
         });
     }
     initLogic() {
+        if (this._isRoomaboutsFieldView()) return;
         const that = this;
         const callbacks = {
             onModeChange: (mode) => {
@@ -323,12 +548,12 @@ class RadarMapCardNative extends HTMLElement {
                 that.state.calibration = { active: false, raw: null, map: null }; 
                 that.resetSelection(); 
                 setTimeout(() => {
-                    that.ui.updateStatus(that.state, that.config);
+                    that._updateInheritedStatus();
                     if(mode === 'layout') {
                         that.ui.updateRadarList(that.state, that.config);
                         setTimeout(() => {
                             that.ui.updateLayoutInputs(that.state, that._hass);
-                            that.renderer.draw(that.state, that.config, that._hass);
+                            that._drawCurrentView(that._hass);
                         }, 20); 
                     }
                 }, 50);
@@ -344,8 +569,8 @@ class RadarMapCardNative extends HTMLElement {
             selectZone: (i, j, z) => {
                 that.state.selectedIndex = i;
                 that.state.selectedPointIndex = j;
-                that.ui.updateStatus(that.state, that.config);
-                that.renderer.draw(that.state, that.config, that._hass);
+                that._updateInheritedStatus();
+                that._drawCurrentView(that._hass);
             },
             resetSelection: () => that.resetSelection(),
             deletePoint: (polyIdx, ptIdx) => {
@@ -356,8 +581,8 @@ class RadarMapCardNative extends HTMLElement {
                     if (pts) {
                         pts.splice(ptIdx, 1);
                         that.state.hasUnsavedChanges = true;
-                        that.renderer.draw(that.state, that.config, that._hass);
-                        that.ui.updateStatus(that.state, that.config);
+                        that._drawCurrentView(that._hass);
+                        that._updateInheritedStatus();
                     }
                 }
             },
@@ -366,8 +591,8 @@ class RadarMapCardNative extends HTMLElement {
                 that.state.selectedPointIndex = null;
                 try {
                     await that.saveZoneToBackend();
-                    that.ui.updateStatus(that.state, that.config);
-                    that.renderer.draw(that.state, that.config, that._hass);
+                    that._updateInheritedStatus();
+                    that._drawCurrentView(that._hass);
                     alert(that.editor.t("zone_saved"));
                 } catch (err) {
                     console.error("Roomabouts: onSaveZoneConfig failed:", err);
@@ -376,7 +601,7 @@ class RadarMapCardNative extends HTMLElement {
             },
             onToggleFOV: () => { 
                 that.state.fov_edit_mode = !that.state.fov_edit_mode; 
-                that.ui.updateStatus(that.state, that.config); 
+                that._updateInheritedStatus();
             },
             onDiscardConfig: () => { 
                 that.fetchData(true); 
@@ -391,7 +616,7 @@ class RadarMapCardNative extends HTMLElement {
                 if(!that.state.layoutChanges) that.state.layoutChanges = {};
                 that.state.layoutChanges[k] = v; 
                 that.state.hasUnsavedChanges = true;
-                that.renderer.draw(that.state, that.config, that._hass); 
+                that._drawCurrentView(that._hass);
             },
             onSaveLayout: async () => {
                 if (that.config?.read_only) return;
@@ -445,8 +670,8 @@ class RadarMapCardNative extends HTMLElement {
                         active: true, raw: { x: rx, y: ry }, map: { x: currentMapPos.left, y: currentMapPos.top } 
                     };
                 }
-                that.ui.updateStatus(that.state, that.config);
-                that.renderer.draw(that.state, that.config, that._hass);
+                that._updateInheritedStatus();
+                that._drawCurrentView(that._hass);
             }
         };
         this.editor.bindEvents(this.state, this.config, callbacks);
@@ -455,8 +680,8 @@ class RadarMapCardNative extends HTMLElement {
         this.state.selectedIndex = null;
         this.state.selectedPointIndex = null;
         this.state.isAddingNew = false;
-        this.ui.updateStatus(this.state, this.config);
-            this.renderer.draw(this.state, this.config, this.state.hass);
+        this._updateInheritedStatus();
+        this._drawCurrentView(this.state.hass);
     }
     _getTargetList(state) {
         if (state.editMode === 'layout') {
@@ -501,24 +726,24 @@ class RadarMapCardNative extends HTMLElement {
     enterEditMode(h) {
         if (this.config?.read_only) {
             this.state.editing = false;
-            this.ui.updateStatus(this.state, this.config);
+            this._updateInheritedStatus();
             return false;
         }
         this.state.editing = true;
         this.ui.updateRadarList(this.state, this.config);
         this.state.points = [];
         this.state.dragState = { isDragging: false };
-        this.ui.updateStatus(this.state, this.config);
+        this._updateInheritedStatus();
         setTimeout(() => this.ui.updateLayoutInputs(this.state, h), 50);
-        this.renderer.draw(this.state, this.config, h);
+        this._drawCurrentView(h);
         return true;
     }
     exitEditMode() {
         this.state.editing = false;
         this.state.points = [];
         this.resetSelection();
-        this.ui.updateStatus(this.state, this.config);
-        this.renderer.draw(this.state, this.config, this.state.hass);
+        this._updateInheritedStatus();
+        this._drawCurrentView(this.state.hass);
     }
     startHeartbeat() { 
         if (this.retryTimer) clearInterval(this.retryTimer);
@@ -537,7 +762,7 @@ class RadarMapCardNative extends HTMLElement {
             this._teardownStream();
             this._clearPresentation('disconnect');
         }
-        if (this.isCreated) this.ui.updateStatus(this.state, this.config);
+        if (this.isCreated) this._updateInheritedStatus();
     }
 }
 function registerCard() {

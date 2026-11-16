@@ -1,6 +1,466 @@
-import { TargetFilter } from './radar-math.js?v=1.4.0';
+import { TargetFilter } from './radar-math.js?v=1.5.0';
+import { ROOMABOUTS_FIELD_LEDGER_TOKENS } from './roomabouts-theme.js?v=1.5.0';
+import { projectRoomaboutsStep } from './roomabouts-trails.js?v=1.5.0';
 
 const MAX_DOM_TRAILS = 96;
+
+export const ROOMABOUTS_SEMANTIC_LIMIT = 705;
+
+const ROOMABOUTS_SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const ROOMABOUTS_EMPTY_RECORDS = Object.freeze([]);
+const ROOMABOUTS_TRACK_STATES = Object.freeze({
+    'confirmed|observed': 'Observed',
+    'tentative|observed': 'Unconfirmed',
+    'confirmed|interpolated': 'Estimated — not directly observed',
+    'coasting|held': 'Held — not currently observed',
+    'coasting|interpolated': 'Estimated — not currently observed',
+    'fading|last-seen': 'Last seen — not current',
+});
+const ROOMABOUTS_UNCERTAINTY_TEXT = Object.freeze({
+    'source-unverified': 'Source unverified',
+    'source-not-currently-observed': 'Source not currently observed',
+    'held-in-stationary-zone': 'Stationary-region hold',
+});
+const ROOMABOUTS_REGION_GROUPS = Object.freeze([
+    Object.freeze(['include_zones', 'include', 'Included region']),
+    Object.freeze(['exclude_zones', 'exclude', 'Excluded region']),
+    Object.freeze(['entrance_zones', 'entrance', 'Entrance region']),
+    Object.freeze(['stationary_zones', 'stationary', 'Stationary region']),
+]);
+const ROOMABOUTS_SOURCE_STATES = new Set(['online', 'degraded', 'offline', 'unknown']);
+const ROOMABOUTS_SOURCE_STATE_RANK = Object.freeze({ unknown: 0, online: 1, degraded: 2, offline: 3 });
+const ROOMABOUTS_RENDER_LIMITS = Object.freeze({
+    zonesPerKind: 128,
+    radars: 64,
+    tracks: 128,
+    sourceHealth: 64,
+    uncertaintyReasons: 16,
+});
+
+const roomaboutsFinite = (value) => typeof value === 'number' && Number.isFinite(value);
+const roomaboutsRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const roomaboutsOwnDataValue = (value, key) => {
+    if (value === null || (typeof value !== 'object' && typeof value !== 'function')) return undefined;
+    try {
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        return descriptor && Object.hasOwn(descriptor, 'value') ? descriptor.value : undefined;
+    } catch (_error) {
+        return undefined;
+    }
+};
+const roomaboutsPoint = (point) => {
+    if (!Array.isArray(point) || roomaboutsOwnDataValue(point, 'length') !== 2) return false;
+    return roomaboutsFinite(roomaboutsOwnDataValue(point, 0))
+        && roomaboutsFinite(roomaboutsOwnDataValue(point, 1));
+};
+const roomaboutsFreezePoint = (point) => Object.freeze([
+    Object.is(point[0], -0) ? 0 : point[0],
+    Object.is(point[1], -0) ? 0 : point[1],
+]);
+const roomaboutsFreezePoints = (points) => Object.freeze(points.map(roomaboutsFreezePoint));
+const roomaboutsInField = (x, y) => x >= 0 && x <= 100 && y >= 0 && y <= 100;
+
+const roomaboutsSignedArea = (points) => {
+    let twiceArea = 0;
+    for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
+        twiceArea += points[previous][0] * points[index][1]
+            - points[index][0] * points[previous][1];
+    }
+    return twiceArea / 2;
+};
+
+const roomaboutsClipBoundary = (points, inside, intersect) => {
+    const result = [];
+    if (points.length === 0) return result;
+    let previous = points[points.length - 1];
+    let previousInside = inside(previous);
+    for (const current of points) {
+        const currentInside = inside(current);
+        if (currentInside !== previousInside) {
+            const crossing = intersect(previous, current);
+            if (roomaboutsPoint(crossing)) result.push(crossing);
+        }
+        if (currentInside) result.push([current[0], current[1]]);
+        previous = current;
+        previousInside = currentInside;
+    }
+    return result;
+};
+
+const roomaboutsClipPolygon = (source) => {
+    let points = source.map((point) => [point[0], point[1]]);
+    const verticalIntersection = (edge) => (from, to) => {
+        const delta = to[0] - from[0];
+        if (delta === 0) return [edge, from[1]];
+        const ratio = (edge - from[0]) / delta;
+        return [edge, from[1] + ratio * (to[1] - from[1])];
+    };
+    const horizontalIntersection = (edge) => (from, to) => {
+        const delta = to[1] - from[1];
+        if (delta === 0) return [from[0], edge];
+        const ratio = (edge - from[1]) / delta;
+        return [from[0] + ratio * (to[0] - from[0]), edge];
+    };
+    points = roomaboutsClipBoundary(points, ([x]) => x >= 0, verticalIntersection(0));
+    points = roomaboutsClipBoundary(points, ([x]) => x <= 100, verticalIntersection(100));
+    points = roomaboutsClipBoundary(points, (([, y]) => y >= 0), horizontalIntersection(0));
+    points = roomaboutsClipBoundary(points, (([, y]) => y <= 100), horizontalIntersection(100));
+    return points.filter(roomaboutsPoint).map(([x, y]) => [
+        Math.min(100, Math.max(0, Object.is(x, -0) ? 0 : x)),
+        Math.min(100, Math.max(0, Object.is(y, -0) ? 0 : y)),
+    ]);
+};
+
+const roomaboutsCentroid = (points) => {
+    const signedArea = roomaboutsSignedArea(points);
+    if (!roomaboutsFinite(signedArea) || signedArea === 0) return null;
+    let sumX = 0;
+    let sumY = 0;
+    for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
+        const cross = points[previous][0] * points[index][1]
+            - points[index][0] * points[previous][1];
+        sumX += (points[previous][0] + points[index][0]) * cross;
+        sumY += (points[previous][1] + points[index][1]) * cross;
+    }
+    const x = sumX / (6 * signedArea);
+    const y = sumY / (6 * signedArea);
+    if (!roomaboutsFinite(x)
+        || !roomaboutsFinite(y)
+        || !roomaboutsInField(x, y)
+        || !roomaboutsPointInPolygon(x, y, points)) return null;
+    return roomaboutsFreezePoint([x, y]);
+};
+
+const roomaboutsPointOnSegment = (x, y, from, to) => {
+    const cross = (x - from[0]) * (to[1] - from[1]) - (y - from[1]) * (to[0] - from[0]);
+    if (Math.abs(cross) > 1e-9) return false;
+    return x >= Math.min(from[0], to[0]) - 1e-9
+        && x <= Math.max(from[0], to[0]) + 1e-9
+        && y >= Math.min(from[1], to[1]) - 1e-9
+        && y <= Math.max(from[1], to[1]) + 1e-9;
+};
+
+const roomaboutsPointInPolygon = (x, y, points) => {
+    let inside = false;
+    for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
+        const from = points[previous];
+        const to = points[index];
+        if (roomaboutsPointOnSegment(x, y, from, to)) return true;
+        if ((to[1] > y) !== (from[1] > y)
+            && x < (from[0] - to[0]) * (y - to[1]) / (from[1] - to[1]) + to[0]) {
+            inside = !inside;
+        }
+    }
+    return inside;
+};
+
+/**
+ * Detach, validate, and clip one configured map polygon against the 0..100 field.
+ * Invalid/degenerate input fails closed; the caller's geometry is never mutated.
+ */
+export const classifyRoomaboutsRegion = (sourcePoints) => {
+    const pointCount = roomaboutsOwnDataValue(sourcePoints, 'length');
+    if (!Array.isArray(sourcePoints)
+        || !Number.isSafeInteger(pointCount)
+        || pointCount < 3
+        || pointCount > 256) {
+        return null;
+    }
+    const points = [];
+    for (let index = 0; index < pointCount; index += 1) {
+        const point = roomaboutsOwnDataValue(sourcePoints, index);
+        if (!roomaboutsPoint(point)) return null;
+        points.push([
+            roomaboutsOwnDataValue(point, 0),
+            roomaboutsOwnDataValue(point, 1),
+        ]);
+    }
+    const sourceArea = Math.abs(roomaboutsSignedArea(points));
+    if (!roomaboutsFinite(sourceArea) || sourceArea === 0) return null;
+    const allInside = points.every(([x, y]) => roomaboutsInField(x, y));
+    const clipped = roomaboutsClipPolygon(points);
+    const clippedArea = clipped.length >= 3 ? Math.abs(roomaboutsSignedArea(clipped)) : 0;
+    if (!roomaboutsFinite(clippedArea) || clippedArea === 0) {
+        return Object.freeze({
+            points: roomaboutsFreezePoints(points),
+            clippedPoints: ROOMABOUTS_EMPTY_RECORDS,
+            status: 'outside',
+            labelPoint: null,
+        });
+    }
+    const frozenClipped = roomaboutsFreezePoints(clipped);
+    return Object.freeze({
+        points: roomaboutsFreezePoints(points),
+        clippedPoints: frozenClipped,
+        status: allInside ? 'inside' : 'partially-clipped',
+        labelPoint: roomaboutsCentroid(clipped),
+    });
+};
+
+const roomaboutsHorizontalSegments = (points, y) => {
+    const crossings = [];
+    for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
+        const from = points[previous];
+        const to = points[index];
+        if ((from[1] > y) === (to[1] > y)) continue;
+        const x = from[0] + (y - from[1]) * (to[0] - from[0]) / (to[1] - from[1]);
+        if (roomaboutsFinite(x)) crossings.push(Math.min(100, Math.max(0, x)));
+    }
+    crossings.sort((left, right) => left - right);
+    const segments = [];
+    for (let index = 0; index + 1 < crossings.length; index += 2) {
+        if (crossings[index + 1] - crossings[index] > 1e-9) {
+            segments.push(Object.freeze([
+                roomaboutsFreezePoint([crossings[index], y]),
+                roomaboutsFreezePoint([crossings[index + 1], y]),
+            ]));
+        }
+    }
+    return segments;
+};
+
+const roomaboutsFallbackScanLines = (points) => {
+    const ys = points.map((point) => point[1]);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const height = maxY - minY;
+    if (!roomaboutsFinite(height) || height <= 0) return ROOMABOUTS_EMPTY_RECORDS;
+    return Object.freeze([0.5, 0.25, 0.75, 0.125, 0.875].map((fraction) => (
+        minY + height * fraction
+    )));
+};
+
+const roomaboutsHatchSegments = (points) => {
+    const segments = [];
+    for (let y = 4; y < 100 && segments.length < 32; y += 8) {
+        segments.push(...roomaboutsHorizontalSegments(points, y).slice(0, 32 - segments.length));
+    }
+    if (segments.length === 0) {
+        for (const y of roomaboutsFallbackScanLines(points)) {
+            const fallback = roomaboutsHorizontalSegments(points, y);
+            if (fallback.length > 0) {
+                segments.push(fallback[0]);
+                break;
+            }
+        }
+    }
+    return Object.freeze(segments);
+};
+
+const roomaboutsStipplePoints = (points) => {
+    const marks = [];
+    for (let y = 4; y < 100 && marks.length < 64; y += 8) {
+        for (let x = 4; x < 100 && marks.length < 64; x += 8) {
+            if (roomaboutsPointInPolygon(x, y, points)) marks.push(roomaboutsFreezePoint([x, y]));
+        }
+    }
+    if (marks.length === 0) {
+        const centroid = roomaboutsCentroid(points);
+        if (centroid) marks.push(centroid);
+        else {
+            for (const y of roomaboutsFallbackScanLines(points)) {
+                const segments = roomaboutsHorizontalSegments(points, y);
+                if (segments.length === 0) continue;
+                const longest = [...segments].sort((left, right) => (
+                    (right[1][0] - right[0][0]) - (left[1][0] - left[0][0])
+                ))[0];
+                marks.push(roomaboutsFreezePoint([
+                    (longest[0][0] + longest[1][0]) / 2,
+                    y,
+                ]));
+                break;
+            }
+        }
+    }
+    return Object.freeze(marks);
+};
+
+/** Return display-only facts for one of the six accepted lifecycle/position pairs. */
+export const classifyRoomaboutsTrack = (track) => {
+    if (!roomaboutsRecord(track)
+        || !roomaboutsRecord(track.position)
+        || track.position.coordinateSpace !== 'map-layout'
+        || !roomaboutsFinite(track.position.x)
+        || !roomaboutsFinite(track.position.y)) {
+        return null;
+    }
+    const pair = `${track.lifecycle}|${track.positionBasis}`;
+    const stateText = ROOMABOUTS_TRACK_STATES[pair];
+    if (!stateText) return null;
+    const uncertaintyText = [];
+    if (Array.isArray(track.uncertainty)) {
+        if (track.uncertainty.length > ROOMABOUTS_RENDER_LIMITS.uncertaintyReasons) return null;
+        for (const reason of track.uncertainty) {
+            const wording = ROOMABOUTS_UNCERTAINTY_TEXT[reason];
+            if (wording && !uncertaintyText.includes(wording)) uncertaintyText.push(wording);
+        }
+    }
+    let postureText = null;
+    if (track.posture === 'suspected_fall') postureText = 'Suspected posture';
+    else if (typeof track.posture === 'string' && track.posture !== '' && track.posture !== 'unknown') {
+        postureText = 'Posture event';
+    }
+    return Object.freeze({
+        lifecycle: track.lifecycle,
+        positionBasis: track.positionBasis,
+        stateText,
+        postureText,
+        uncertaintyText: Object.freeze(uncertaintyText),
+        outsideField: !roomaboutsInField(track.position.x, track.position.y),
+    });
+};
+
+const roomaboutsDisplayName = (value) => (
+    typeof value === 'string' ? value.slice(0, 256) : ''
+);
+
+/**
+ * Build the sole immutable display scene. It intentionally drops sensor IDs,
+ * track IDs, source references, health reasons, and map/config identifiers.
+ */
+export const buildRoomaboutsRenderScene = (presentation) => {
+    if (!roomaboutsRecord(presentation)
+        || presentation.accepted !== true
+        || !roomaboutsRecord(presentation.map)
+        || !roomaboutsRecord(presentation.map.zones)
+        || !Array.isArray(presentation.map.radars)
+        || presentation.map.radars.length > ROOMABOUTS_RENDER_LIMITS.radars
+        || !Array.isArray(presentation.tracks)
+        || presentation.tracks.length > ROOMABOUTS_RENDER_LIMITS.tracks
+        || !Array.isArray(presentation.sourceHealth)
+        || presentation.sourceHealth.length > ROOMABOUTS_RENDER_LIMITS.sourceHealth) {
+        return null;
+    }
+
+    const regions = [];
+    for (const [groupName, kind, genericLabel] of ROOMABOUTS_REGION_GROUPS) {
+        const configured = presentation.map.zones[groupName];
+        if (!Array.isArray(configured)
+            || configured.length > ROOMABOUTS_RENDER_LIMITS.zonesPerKind) return null;
+        for (let index = 0; index < configured.length; index += 1) {
+            const value = configured[index];
+            const geometry = classifyRoomaboutsRegion(Array.isArray(value) ? value : value?.points);
+            if (!geometry) continue;
+            const name = roomaboutsDisplayName(roomaboutsRecord(value) ? value.name : '');
+            const statusText = geometry.status === 'inside'
+                ? 'Inside field'
+                : geometry.status === 'partially-clipped'
+                    ? 'Partially clipped'
+                    : 'Outside field — not shown';
+            const semanticBase = `${genericLabel}${name ? `: ${name}` : ''}`;
+            regions.push(Object.freeze({
+                kind,
+                name,
+                points: geometry.points,
+                clippedPoints: geometry.clippedPoints,
+                status: geometry.status,
+                labelPoint: geometry.labelPoint,
+                hatchSegments: kind === 'exclude' && geometry.status !== 'outside'
+                    ? roomaboutsHatchSegments(geometry.clippedPoints)
+                    : ROOMABOUTS_EMPTY_RECORDS,
+                stipplePoints: kind === 'stationary' && geometry.status !== 'outside'
+                    ? roomaboutsStipplePoints(geometry.clippedPoints)
+                    : ROOMABOUTS_EMPTY_RECORDS,
+                semanticText: `${semanticBase} — ${statusText}`,
+            }));
+        }
+    }
+
+    const radars = presentation.map.radars;
+    const healthBySensor = new Map();
+    for (const health of presentation.sourceHealth) {
+        const sensorId = roomaboutsOwnDataValue(health, 'sensorId');
+        const rawStatus = roomaboutsOwnDataValue(health, 'status');
+        if (typeof sensorId !== 'string') continue;
+        const status = ROOMABOUTS_SOURCE_STATES.has(rawStatus) ? rawStatus : 'unknown';
+        const previous = healthBySensor.get(sensorId);
+        if (previous === undefined
+            || ROOMABOUTS_SOURCE_STATE_RANK[status] > ROOMABOUTS_SOURCE_STATE_RANK[previous]) {
+            healthBySensor.set(sensorId, status);
+        }
+    }
+    const radarSensors = new Set();
+    const stations = [];
+    let unplacedCount = 0;
+    for (let index = 0; index < radars.length; index += 1) {
+        const radar = radars[index];
+        const rawSensorId = roomaboutsOwnDataValue(radar, 'sensorId');
+        const sensorId = typeof rawSensorId === 'string' ? rawSensorId : null;
+        if (sensorId !== null) radarSensors.add(sensorId);
+        const layout = roomaboutsOwnDataValue(radar, 'layout');
+        const x = roomaboutsOwnDataValue(layout, 'origin_x');
+        const y = roomaboutsOwnDataValue(layout, 'origin_y');
+        if (!roomaboutsFinite(x) || !roomaboutsFinite(y) || !roomaboutsInField(x, y)) {
+            unplacedCount += 1;
+            continue;
+        }
+        const status = sensorId === null ? 'unknown' : (healthBySensor.get(sensorId) || 'unknown');
+        const paused = roomaboutsOwnDataValue(radar, 'paused') === true;
+        const healthText = status === 'unknown'
+            ? 'Health unknown'
+            : `${status[0].toUpperCase()}${status.slice(1)}`;
+        const stateText = paused ? `Paused — ${healthText}` : healthText;
+        const label = `Station ${index + 1}`;
+        stations.push(Object.freeze({
+            x,
+            y,
+            label,
+            status,
+            paused,
+            stateText,
+            semanticText: `${label}: Survey station — ${stateText}`,
+        }));
+    }
+    let unmatchedHealthCount = 0;
+    for (const sensorId of healthBySensor.keys()) {
+        if (!radarSensors.has(sensorId)) unmatchedHealthCount += 1;
+    }
+    const summaryParts = [];
+    if (unplacedCount > 0) summaryParts.push(`Unplaced or off-field stations: ${unplacedCount}`);
+    if (unmatchedHealthCount > 0) summaryParts.push(`Unmatched source health: ${unmatchedHealthCount}`);
+    const sourceSummary = summaryParts.length > 0 ? summaryParts.join('; ') : null;
+
+    const tracks = [];
+    for (const track of presentation.tracks) {
+        const facts = classifyRoomaboutsTrack(track);
+        const alias = roomaboutsDisplayName(track?.anonymousAlias);
+        if (!facts || alias === '') return null;
+        const semanticParts = [
+            `${alias}: ${facts.stateText}`,
+            `Position basis: ${facts.positionBasis}`,
+        ];
+        if (facts.postureText) semanticParts.push(facts.postureText);
+        semanticParts.push(...facts.uncertaintyText);
+        if (facts.outsideField) semanticParts.push('Outside field — not shown');
+        tracks.push(Object.freeze({
+            x: track.position.x,
+            y: track.position.y,
+            alias,
+            lifecycle: facts.lifecycle,
+            positionBasis: facts.positionBasis,
+            stateText: facts.stateText,
+            postureText: facts.postureText,
+            uncertaintyText: facts.uncertaintyText,
+            outsideField: facts.outsideField,
+            semanticText: semanticParts.join('; '),
+        }));
+    }
+
+    const semanticItems = [
+        ...regions.map((region) => region.semanticText),
+        ...stations.map((station) => station.semanticText),
+        ...tracks.map((track) => track.semanticText),
+    ];
+    if (sourceSummary !== null) semanticItems.push(sourceSummary);
+    if (semanticItems.length > ROOMABOUTS_SEMANTIC_LIMIT) return null;
+    return Object.freeze({
+        regions: Object.freeze(regions),
+        stations: Object.freeze(stations),
+        tracks: Object.freeze(tracks),
+        sourceSummary,
+        semanticItems: Object.freeze(semanticItems),
+    });
+};
 
 export class RadarRenderer {
     constructor(math, root, timers = {}) {
@@ -18,6 +478,10 @@ export class RadarRenderer {
         this._resizeHandler = null;
         this._ro = null;
         this.targetFilter = new TargetFilter();
+        this._roomaboutsScene = null;
+        this._roomaboutsTrailRecords = ROOMABOUTS_EMPTY_RECORDS;
+        this._roomaboutsActive = false;
+        this._roomaboutsCanvasMode = false;
     }
     _removeTrail(trail) {
         if (!trail) return;
@@ -53,9 +517,118 @@ export class RadarRenderer {
             if (!currentActiveIds.has(id)) this._removeDomCacheEntry(id);
         }
     }
+    _roomaboutsDocument() {
+        return this.root?.ownerDocument
+            || this.root?.host?.ownerDocument
+            || (typeof document !== 'undefined' ? document : null);
+    }
+    _clearRoomaboutsChildren(element) {
+        if (!element) return;
+        if (typeof element.replaceChildren === 'function') {
+            element.replaceChildren();
+            return;
+        }
+        while (element.firstChild) element.removeChild(element.firstChild);
+    }
+    _ensureRoomaboutsLayers() {
+        const doc = this._roomaboutsDocument();
+        if (!doc || typeof doc.createElement !== 'function') return null;
+        const parent = this.root.getElementById('map-container')
+            || this.root.getElementById('root')
+            || this.root;
+        if (!parent || typeof parent.appendChild !== 'function') return null;
+        let visual = this.root.getElementById('roomabouts-visual-layer');
+        if (!visual) {
+            visual = doc.createElement('div');
+            visual.setAttribute('id', 'roomabouts-visual-layer');
+            visual.setAttribute('class', 'roomabouts-visual-layer');
+            parent.appendChild(visual);
+        }
+        visual.setAttribute('aria-hidden', 'true');
+        let semantic = this.root.getElementById('roomabouts-semantic-layer');
+        if (!semantic) {
+            semantic = doc.createElement('div');
+            semantic.setAttribute('id', 'roomabouts-semantic-layer');
+            parent.appendChild(semantic);
+        }
+        semantic.setAttribute('role', 'list');
+        return { visual, semantic };
+    }
+    _renderRoomaboutsSemantics(scene, semantic) {
+        const doc = this._roomaboutsDocument();
+        if (!doc || !semantic || typeof doc.createElement !== 'function') return false;
+        const items = [];
+        for (const text of scene.semanticItems) {
+            const item = doc.createElement('div');
+            item.setAttribute('role', 'listitem');
+            item.setAttribute('class', 'roomabouts-semantic-item');
+            item.textContent = text;
+            items.push(item);
+        }
+        if (typeof semantic.replaceChildren === 'function') semantic.replaceChildren(...items);
+        else {
+            this._clearRoomaboutsChildren(semantic);
+            for (const item of items) semantic.appendChild(item);
+        }
+        return true;
+    }
+    acceptRoomaboutsPresentation(presentation) {
+        const scene = buildRoomaboutsRenderScene(presentation);
+        if (!scene) {
+            this.clearRoomaboutsPresentation();
+            return false;
+        }
+        const layers = this._ensureRoomaboutsLayers();
+        if (!layers || !this._renderRoomaboutsSemantics(scene, layers.semantic)) {
+            this.clearRoomaboutsPresentation();
+            return false;
+        }
+        this._roomaboutsScene = scene;
+        return true;
+    }
+    setRoomaboutsTrailRecords(records) {
+        if (!Array.isArray(records) || records.length > MAX_DOM_TRAILS) {
+            this._roomaboutsTrailRecords = ROOMABOUTS_EMPTY_RECORDS;
+            return false;
+        }
+        const detached = [];
+        for (const record of records) {
+            if (!roomaboutsRecord(record)
+                || !roomaboutsFinite(record.x)
+                || !roomaboutsFinite(record.y)
+                || !roomaboutsFinite(record.rotationDeg)
+                || (record.side !== 'left' && record.side !== 'right')) {
+                this._roomaboutsTrailRecords = ROOMABOUTS_EMPTY_RECORDS;
+                return false;
+            }
+            detached.push(Object.freeze({
+                x: record.x,
+                y: record.y,
+                rotationDeg: record.rotationDeg,
+                side: record.side,
+            }));
+        }
+        this._roomaboutsTrailRecords = detached.length > 0
+            ? Object.freeze(detached)
+            : ROOMABOUTS_EMPTY_RECORDS;
+        return true;
+    }
+    clearRoomaboutsPresentation() {
+        this._roomaboutsScene = null;
+        this._roomaboutsTrailRecords = ROOMABOUTS_EMPTY_RECORDS;
+        this._roomaboutsActive = false;
+        this._roomaboutsCanvasMode = false;
+        this._clearRoomaboutsChildren(this.root.getElementById('svg-canvas'));
+        this._clearRoomaboutsChildren(this.root.getElementById('roomabouts-visual-layer'));
+        this._clearRoomaboutsChildren(this.root.getElementById('roomabouts-semantic-layer'));
+        if (this.ctx && this.canvas) {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+    }
     clearRuntime() {
         if (this.animFrameId !== null) cancelAnimationFrame(this.animFrameId);
         this.animFrameId = null;
+        this.clearRoomaboutsPresentation();
         this._clearTrails();
         this.targetFilter.clear();
         this._removeStaleDomEntries(new Set());
@@ -90,6 +663,321 @@ export class RadarRenderer {
         for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
         for (const [k, v] of Object.entries(style)) el.style[k] = v;
         return el;
+    }
+    _createRoomaboutsSvg(tag, attributes = {}) {
+        const doc = this._roomaboutsDocument();
+        if (!doc || typeof doc.createElementNS !== 'function') return null;
+        const element = doc.createElementNS(ROOMABOUTS_SVG_NAMESPACE, tag);
+        for (const [name, value] of Object.entries(attributes)) {
+            element.setAttribute(name, String(value));
+        }
+        return element;
+    }
+    drawRoomaboutsMap(scene, svg) {
+        if (!scene || !svg) return false;
+        this._clearRoomaboutsChildren(svg);
+        svg.setAttribute('viewBox', '0 0 100 100');
+        svg.setAttribute('preserveAspectRatio', 'none');
+        svg.setAttribute('aria-hidden', 'true');
+        const layer = this._createRoomaboutsSvg('g', {
+            class: 'roomabouts-map-layer',
+            'aria-hidden': 'true',
+        });
+        if (!layer) return false;
+        for (const region of scene.regions) {
+            if (region.status === 'outside' || region.clippedPoints.length < 3) continue;
+            const polygon = this._createRoomaboutsSvg('polygon', {
+                class: 'roomabouts-zone',
+                'data-region-kind': region.kind,
+                'data-clip-status': region.status,
+                points: region.points.map(([x, y]) => `${x},${y}`).join(' '),
+            });
+            if (polygon) layer.appendChild(polygon);
+            for (const segment of region.hatchSegments) {
+                const line = this._createRoomaboutsSvg('line', {
+                    class: 'roomabouts-zone-hatch-line',
+                    x1: segment[0][0],
+                    y1: segment[0][1],
+                    x2: segment[1][0],
+                    y2: segment[1][1],
+                });
+                if (line) layer.appendChild(line);
+            }
+            for (const point of region.stipplePoints) {
+                const mark = this._createRoomaboutsSvg('circle', {
+                    class: 'roomabouts-zone-stipple-mark',
+                    cx: point[0],
+                    cy: point[1],
+                    r: 0.65,
+                });
+                if (mark) layer.appendChild(mark);
+            }
+        }
+        svg.appendChild(layer);
+        return true;
+    }
+    _positionRoomaboutsElement(element, x, y) {
+        element.style.left = `${x}%`;
+        element.style.top = `${y}%`;
+    }
+    _createRoomaboutsStation(station, doc) {
+        const element = doc.createElement('div');
+        element.setAttribute('class', 'roomabouts-station');
+        element.setAttribute('data-source-status', station.status);
+        element.setAttribute('data-paused', String(station.paused));
+        element.setAttribute('aria-hidden', 'true');
+        this._positionRoomaboutsElement(element, station.x, station.y);
+        const label = doc.createElement('span');
+        label.setAttribute('class', 'roomabouts-station-label');
+        label.textContent = `${station.label} · Survey station — ${station.stateText}`;
+        element.appendChild(label);
+        return element;
+    }
+    _createRoomaboutsRegionLabel(region, doc) {
+        if (!region.labelPoint) return null;
+        const labels = {
+            include: 'Included region',
+            exclude: 'Excluded region',
+            entrance: 'Entrance region',
+            stationary: 'Stationary region',
+        };
+        const element = doc.createElement('div');
+        element.setAttribute('class', 'roomabouts-zone-label');
+        element.setAttribute('data-region-kind', region.kind);
+        element.setAttribute('aria-hidden', 'true');
+        this._positionRoomaboutsElement(element, region.labelPoint[0], region.labelPoint[1]);
+        element.textContent = region.name || labels[region.kind];
+        return element;
+    }
+    _createRoomaboutsTrack(track, doc) {
+        const element = doc.createElement('div');
+        element.setAttribute('class', 'roomabouts-track');
+        element.setAttribute('data-lifecycle', track.lifecycle);
+        element.setAttribute('data-position-basis', track.positionBasis);
+        element.setAttribute('aria-hidden', 'true');
+        this._positionRoomaboutsElement(element, track.x, track.y);
+        const label = doc.createElement('span');
+        label.setAttribute('class', 'roomabouts-track-label');
+        label.textContent = `${track.alias} · ${track.stateText}`;
+        if (track.postureText) {
+            const posture = doc.createElement('span');
+            posture.setAttribute('class', 'roomabouts-posture');
+            posture.textContent = track.postureText;
+            label.appendChild(posture);
+        }
+        element.appendChild(label);
+        return element;
+    }
+    _createRoomaboutsStep(record, width, height, doc) {
+        const projection = projectRoomaboutsStep(record, width, height);
+        if (!projection) return null;
+        const element = doc.createElement('div');
+        element.setAttribute('class', 'roomabouts-step');
+        element.setAttribute('data-side', projection.side);
+        element.setAttribute('aria-hidden', 'true');
+        element.style.left = `${projection.screenX}px`;
+        element.style.top = `${projection.screenY}px`;
+        element.style.transform = `translate(-50%, -50%) rotate(${projection.rotationDeg}deg)`;
+        return element;
+    }
+    _renderRoomaboutsDom(scene, mode) {
+        const layers = this._ensureRoomaboutsLayers();
+        const doc = this._roomaboutsDocument();
+        if (!layers || !doc || typeof doc.createElement !== 'function') return false;
+        const visual = layers.visual;
+        this._clearRoomaboutsChildren(visual);
+        for (const region of scene.regions) {
+            const label = this._createRoomaboutsRegionLabel(region, doc);
+            if (label) visual.appendChild(label);
+        }
+        for (const station of scene.stations) {
+            visual.appendChild(this._createRoomaboutsStation(station, doc));
+        }
+        if (mode === 'css') {
+            for (const track of scene.tracks) {
+                if (!track.outsideField) visual.appendChild(this._createRoomaboutsTrack(track, doc));
+            }
+            const bounds = typeof visual.getBoundingClientRect === 'function'
+                ? visual.getBoundingClientRect()
+                : { width: visual.clientWidth, height: visual.clientHeight };
+            const width = Number(bounds.width) || Number(visual.clientWidth) || 0;
+            const height = Number(bounds.height) || Number(visual.clientHeight) || 0;
+            if (width > 0 && height > 0) {
+                for (const record of this._roomaboutsTrailRecords) {
+                    const step = this._createRoomaboutsStep(record, width, height, doc);
+                    if (step) visual.appendChild(step);
+                }
+            }
+        }
+        return true;
+    }
+    _clearRoomaboutsCanvas() {
+        if (!this.ctx || !this.canvas) return;
+        if (typeof this.ctx.setTransform === 'function') this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this._isCanvasCleared = true;
+    }
+    _roomaboutsCanvasMetrics() {
+        if (!this.canvas || !this.ctx) return null;
+        const rect = typeof this.canvas.getBoundingClientRect === 'function'
+            ? this.canvas.getBoundingClientRect()
+            : { width: this.canvas.clientWidth, height: this.canvas.clientHeight };
+        const width = Number(rect.width) || Number(this.canvas.clientWidth) || 0;
+        const height = Number(rect.height) || Number(this.canvas.clientHeight) || 0;
+        if (!roomaboutsFinite(width) || !roomaboutsFinite(height) || width <= 0 || height <= 0) return null;
+        const rawRatio = typeof window !== 'undefined' ? Number(window.devicePixelRatio) : 1;
+        const ratio = roomaboutsFinite(rawRatio) ? Math.min(3, Math.max(1, rawRatio)) : 1;
+        const backingWidth = Math.max(1, Math.round(width * ratio));
+        const backingHeight = Math.max(1, Math.round(height * ratio));
+        if (this.canvas.width !== backingWidth) this.canvas.width = backingWidth;
+        if (this.canvas.height !== backingHeight) this.canvas.height = backingHeight;
+        return Object.freeze({ width, height, scaleX: backingWidth / width, scaleY: backingHeight / height });
+    }
+    _roomaboutsCanvasTrackColor(track) {
+        if (track.lifecycle === 'confirmed' && track.positionBasis === 'observed') {
+            return ROOMABOUTS_FIELD_LEDGER_TOKENS.stateObserved;
+        }
+        if (track.lifecycle === 'fading') return ROOMABOUTS_FIELD_LEDGER_TOKENS.stateLastSeen;
+        if (track.lifecycle === 'tentative') return ROOMABOUTS_FIELD_LEDGER_TOKENS.inkMuted;
+        return ROOMABOUTS_FIELD_LEDGER_TOKENS.stateHeld;
+    }
+    _drawRoomaboutsCanvasTrack(ctx, track, width, height) {
+        if (track.outsideField) return;
+        const x = track.x * width / 100;
+        const y = track.y * height / 100;
+        if (!roomaboutsFinite(x) || !roomaboutsFinite(y)) return;
+        const color = this._roomaboutsCanvasTrackColor(track);
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 2;
+        if (track.lifecycle === 'tentative') ctx.setLineDash([1.5, 3]);
+        else if (track.lifecycle === 'coasting' && track.positionBasis === 'interpolated') {
+            ctx.setLineDash([6, 3, 1.5, 3]);
+        }
+        else if (track.positionBasis === 'interpolated') ctx.setLineDash([2, 3]);
+        else if (track.positionBasis === 'held' || track.positionBasis === 'last-seen') ctx.setLineDash([5, 3]);
+        else ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(0, 0, 9, 0, Math.PI * 2);
+        ctx.stroke();
+        if (track.lifecycle === 'tentative') {
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        if (track.lifecycle === 'confirmed' && track.positionBasis === 'observed') {
+            ctx.beginPath();
+            ctx.arc(0, 0, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        if (track.lifecycle === 'coasting' && track.positionBasis === 'interpolated') {
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.arc(0, -9, 1.7, 0, Math.PI * 2);
+            ctx.arc(0, 9, 1.7, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        if (track.lifecycle === 'fading' && track.positionBasis === 'last-seen') {
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(0, -14);
+            ctx.lineTo(0, -9);
+            ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.font = '500 12px ui-sans-serif, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const labelText = `${track.alias} · ${track.stateText}`;
+        const labelMeasure = typeof ctx.measureText === 'function'
+            ? ctx.measureText(labelText).width
+            : labelText.length * 6;
+        const labelWidth = Math.max(1, labelMeasure + 8);
+        ctx.fillStyle = ROOMABOUTS_FIELD_LEDGER_TOKENS.labelBackground;
+        ctx.fillRect(-labelWidth / 2, 13, labelWidth, 18);
+        ctx.fillStyle = ROOMABOUTS_FIELD_LEDGER_TOKENS.labelText;
+        ctx.fillText(labelText, 0, 15);
+        if (track.postureText) {
+            ctx.font = '600 11px ui-sans-serif, system-ui, sans-serif';
+            const measured = typeof ctx.measureText === 'function'
+                ? ctx.measureText(track.postureText).width
+                : track.postureText.length * 6;
+            const badgeWidth = Math.max(1, measured + 8);
+            ctx.fillStyle = ROOMABOUTS_FIELD_LEDGER_TOKENS.stateAttention;
+            ctx.fillRect(-badgeWidth / 2, 33, badgeWidth, 17);
+            ctx.fillStyle = ROOMABOUTS_FIELD_LEDGER_TOKENS.labelText;
+            ctx.fillText(track.postureText, 0, 35);
+        }
+        ctx.restore();
+    }
+    _drawRoomaboutsCanvasStep(ctx, record, width, height) {
+        const projection = projectRoomaboutsStep(record, width, height);
+        if (!projection) return;
+        ctx.save();
+        ctx.translate(projection.screenX, projection.screenY);
+        ctx.rotate(projection.rotationDeg * Math.PI / 180);
+        if (projection.side === 'right') ctx.scale(-1, 1);
+        ctx.translate(-3.5, -6.5);
+        ctx.fillStyle = ROOMABOUTS_FIELD_LEDGER_TOKENS.stateObserved;
+        ctx.beginPath();
+        ctx.moveTo(0.7, 0);
+        ctx.lineTo(6.3, 0);
+        ctx.quadraticCurveTo(7, 0, 7, 0.7);
+        ctx.lineTo(7, 7.3);
+        ctx.quadraticCurveTo(7, 8, 6.3, 8);
+        ctx.lineTo(2.94, 8);
+        ctx.lineTo(2.38, 6.24);
+        ctx.lineTo(0, 6.24);
+        ctx.lineTo(0, 0.7);
+        ctx.quadraticCurveTo(0, 0, 0.7, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = ROOMABOUTS_FIELD_LEDGER_TOKENS.ink;
+        ctx.fillRect(1, 9, 4, 4);
+        ctx.restore();
+    }
+    _renderRoomaboutsCanvas() {
+        if (!this._roomaboutsScene || !this.ctx || !this.canvas) return false;
+        const metrics = this._roomaboutsCanvasMetrics();
+        if (!metrics) {
+            this._clearRoomaboutsCanvas();
+            return false;
+        }
+        const { width, height, scaleX, scaleY } = metrics;
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+        for (const track of this._roomaboutsScene.tracks) {
+            this._drawRoomaboutsCanvasTrack(this.ctx, track, width, height);
+        }
+        for (const record of this._roomaboutsTrailRecords) {
+            this._drawRoomaboutsCanvasStep(this.ctx, record, width, height);
+        }
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        this._isCanvasCleared = false;
+        return true;
+    }
+    _drawRoomaboutsReadonly(config, svg, dotsLayer) {
+        this._roomaboutsActive = true;
+        this._roomaboutsCanvasMode = config?.target_render_mode === 'canvas';
+        this.initCanvasEngine();
+        if (dotsLayer) dotsLayer.style.display = 'none';
+        if (svg) svg.style.display = 'block';
+        if (this.canvas) this.canvas.style.display = this._roomaboutsCanvasMode ? 'block' : 'none';
+        const scene = this._roomaboutsScene;
+        if (!scene) {
+            if (svg) this._clearRoomaboutsChildren(svg);
+            const layers = this._ensureRoomaboutsLayers();
+            if (layers) this._clearRoomaboutsChildren(layers.visual);
+            this._clearRoomaboutsCanvas();
+            return;
+        }
+        this.drawRoomaboutsMap(scene, svg);
+        this._renderRoomaboutsDom(scene, this._roomaboutsCanvasMode ? 'canvas' : 'css');
+        if (this._roomaboutsCanvasMode) this._renderRoomaboutsCanvas();
+        else this._clearRoomaboutsCanvas();
     }
     calculateStandardCoord(cfg, xRaw, yRaw) {
         return this.math.calculate(cfg, { x: xRaw, y: yRaw, z: 0 });
@@ -129,6 +1017,12 @@ export class RadarRenderer {
                 this.canvas.width = rw;
                 this.canvas.height = rh;
             }
+        }
+        if (this._roomaboutsActive) {
+            if (this._roomaboutsCanvasMode) this._renderRoomaboutsCanvas();
+            else this._clearRoomaboutsCanvas();
+            this.animFrameId = null;
+            return;
         }
         const globalConfig = (this.currentState?.data && this.currentState.data.global_config) || {};
         const renderMode = globalConfig.target_render_mode || this.currentConfig?.target_render_mode || 'css';
@@ -537,10 +1431,17 @@ export class RadarRenderer {
         this.currentState = state;
         this.currentHass = hass;
         this.currentConfig = config;
-        this.initCanvasEngine();
         const svg = this.root.getElementById('svg-canvas');
         const dotsLayer = this.root.getElementById('dots-layer');
-        if (!svg || !dotsLayer || !hass || !hass.states) return;
+        if (!svg || !dotsLayer) return;
+        if (config?.read_only === true && state?.editing !== true) {
+            this._drawRoomaboutsReadonly(config, svg, dotsLayer);
+            return;
+        }
+        this._roomaboutsActive = false;
+        this._roomaboutsCanvasMode = false;
+        this.initCanvasEngine();
+        if (!hass || !hass.states) return;
         while (svg.firstChild) svg.removeChild(svg.firstChild);
         const allRadars = this._getAllRadars(state, config, hass);
         this.drawZones(state, config, svg);

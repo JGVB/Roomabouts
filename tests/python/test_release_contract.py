@@ -317,7 +317,7 @@ class ReleaseContractTests(unittest.TestCase):
         manifest = json.loads((COMPONENT / "manifest.json").read_text(encoding="utf-8"))
         version = manifest["version"]
         self.assertRegex(version, r"^\d+\.\d+\.\d+$")
-        self.assertEqual(version, "1.4.0")
+        self.assertEqual(version, "1.5.0")
         self.assertEqual(len(tuple(WWW.glob("*.js"))), 8)
         imports_found = 0
 

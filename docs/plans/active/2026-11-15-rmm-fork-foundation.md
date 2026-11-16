@@ -517,16 +517,18 @@ Wave 3B exit evidence: 12 theme tests and 18 footprint tests pass inside the 62-
 
 ##### Wave 3C — Read-only map and DOM integration
 
-- [ ] Import the modules and bump manifest/frontend query versions together.
-- [ ] Before the first inherited render/sink, make `setConfig()` construct and assign a typed Field Ledger read-only allowlist; then activate the isolated subtree only for that view and remove it cleanly on teardown/mode changes.
-- [ ] Add `drawRoomaboutsMap()` as a separate non-interactive clipped SVG path for configured include/exclude/entrance/stationary regions, bounded labels, and anonymous survey stations; skip degenerate/nonfinite/fully outside display, label only valid visible intersections, treat outside origins as unplaced, and never invent/clamp a position or architectural meaning.
-- [ ] In renderer-owned tests and code, join station health internally, assign frame-local station numbers, combine missing/unmatched/paused/unplaced/off-field cases conservatively, and keep source identifiers out of UI and semantics.
-- [ ] Add explicit Roomabouts DOM target branches for all six validator-compatible lifecycle/position pairs with typed state classes/data and neutral posture/uncertainty copy.
-- [ ] Build every snapshot/config-derived label with `textContent` and safe DOM/SVG primitives; prohibit data-bearing HTML insertion and prove hostile zone-name markup/event/URL strings remain literal with zero node injection or request attempt.
-- [ ] Render abstract DOM survey steps from the shared footprint store; do not convert the inherited trail circles.
-- [ ] Extend fixtures with validated all-sources-offline and composite cases using all six valid lifecycle/position track pairs plus a separate offline station; every frame must pass the production snapshot validator before rendering.
+- [x] Import the modules and bump manifest/frontend query versions together.
+- [x] Before the first inherited render/sink, make `setConfig()` construct and assign a typed Field Ledger read-only allowlist; then activate the isolated subtree only for that view and remove it cleanly on teardown/mode changes.
+- [x] Add `drawRoomaboutsMap()` as a separate non-interactive clipped SVG path for configured include/exclude/entrance/stationary regions, bounded labels, and anonymous survey stations; skip degenerate/nonfinite/fully outside display, label only valid visible intersections, treat outside origins as unplaced, and never invent/clamp a position or architectural meaning.
+- [x] In renderer-owned tests and code, join station health internally, assign frame-local station numbers, combine missing/unmatched/paused/unplaced/off-field cases conservatively, and keep source identifiers out of UI and semantics.
+- [x] Add explicit Roomabouts DOM target branches for all six validator-compatible lifecycle/position pairs with typed state classes/data and neutral posture/uncertainty copy.
+- [x] Build every snapshot/config-derived label with `textContent` and safe DOM/SVG primitives; prohibit data-bearing HTML insertion and prove hostile zone-name markup/event/URL strings remain literal with zero node injection or request attempt.
+- [x] Render abstract DOM survey steps from the shared footprint store; do not convert the inherited trail circles.
+- [x] Extend fixtures with validated all-sources-offline and composite cases using all six valid lifecycle/position track pairs plus a separate offline station; every frame must pass the production snapshot validator before rendering.
 
 Exit: the real card visibly shows configured regions, placed/anonymous station state, truthful track markers, and deterministic footprints; no invented floor plan, editor affordance, or source ID appears.
+
+Wave 3C exit evidence: all 137 Python contract tests, all 76 dependency-free Deno tests, and all six pinned-Chromium functional/toolchain tests pass; `git diff --check` is clean. Three independent final reviews approve card lifecycle/privacy, renderer geometry/semantics/cleanup, and browser security/originality behavior. Review-found defects—SVG label scaling, detached/unconfigured subscriptions, mixed-frame trail rendering, delayed final-empty cleanup, inherited station origins, sparse polygon failure, small-region treatment loss, stale SVG cleanup, and asymmetric Canvas footprint parity—were corrected and now have focused regression coverage.
 
 ##### Wave 3D — Canvas parity and accessibility behavior
 

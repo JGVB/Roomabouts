@@ -74,6 +74,70 @@ Deno.test('synthetic scenarios contain no credentials, network destinations, or 
     assert(generationBTrack.anonymousAlias !== generationATrack.anonymousAlias, 'alias changes at reset');
 });
 
+Deno.test('Field Ledger scenarios cover only production-valid state and source grammar', () => {
+    const byId = new Map(SYNTHETIC_SCENARIOS.map((scenario) => [scenario.id, scenario]));
+    assertEquals([...byId.keys()], [
+        'walk-and-fade',
+        'generation-reset',
+        'three-anonymous-tracks',
+        'empty-configured-field',
+        'all-sources-offline',
+        'six-state-composite',
+        'hostile-literals',
+    ], 'stable scenario IDs');
+
+    const empty = validateRoomaboutsSnapshot(byId.get('empty-configured-field').frames[0]);
+    assertEquals(empty.tracks, [], 'empty field tracks');
+    assertEquals(empty.map.radars, [], 'empty field stations');
+    assertEquals(empty.sourceHealth, [], 'empty field health');
+    assert(
+        Object.values(empty.map.zones).every((zones) => zones.length === 0),
+        'empty field configured regions',
+    );
+
+    const offline = validateRoomaboutsSnapshot(byId.get('all-sources-offline').frames[0]);
+    assertEquals(offline.tracks, [], 'offline sources do not invent tracks');
+    assertEquals(offline.map.radars.length, 2, 'offline scenario placed stations');
+    assert(
+        offline.sourceHealth.every((source) => source.status === 'offline'),
+        'offline status stays on source health',
+    );
+
+    const composite = validateRoomaboutsSnapshot(byId.get('six-state-composite').frames[0]);
+    assertEquals(composite.tracks.map((item) => `${item.lifecycle}/${item.positionBasis}`), [
+        'tentative/observed',
+        'confirmed/observed',
+        'confirmed/interpolated',
+        'coasting/held',
+        'coasting/interpolated',
+        'fading/last-seen',
+    ], 'all six validator-compatible track pairs');
+    assertEquals(
+        composite.tracks[0].uncertainty,
+        ['source-unverified'],
+        'ambiguity is uncertainty rather than a visual-only lifecycle',
+    );
+    assert(
+        composite.tracks.every((item) => item.lifecycle !== 'offline'),
+        'offline is never a track lifecycle',
+    );
+    const offlineStation = composite.sourceHealth.find((item) => item.status === 'offline');
+    assertEquals(offlineStation.sensorId, 'source-bbbbbbbbbbbb', 'separate offline station');
+    assert(
+        composite.tracks.every((item) => !item.sourceRefs.some((ref) => ref.includes('bbbbbbbbbbbb'))),
+        'offline station is not presented as a track source',
+    );
+    assert(
+        Object.values(composite.map.zones).every((zones) => zones.length === 1),
+        'composite has one region of every configured kind',
+    );
+
+    const hostile = validateRoomaboutsSnapshot(byId.get('hostile-literals').frames[0]);
+    const hostileNames = Object.values(hostile.map.zones).flat().map((zone) => zone.name);
+    assert(hostileNames.every((name) => /[<>]/.test(name)), 'hostile names remain literal data');
+    assertEquals(hostile.tracks[0].posture, 'suspected_fall', 'posture remains an orthogonal fact');
+});
+
 Deno.test('rmm stream subscription immediately emits a detached current snapshot and tears down', async () => {
     const replay = makeReplay();
     const messages = [];

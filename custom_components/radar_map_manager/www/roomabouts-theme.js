@@ -135,14 +135,22 @@ ${FIELD_LEDGER_PROPERTY_DECLARATIONS}
 }
 
 .roomabouts-readonly .roomabouts-zone-label {
-    fill: var(--roomabouts-ink);
+    position: absolute;
+    box-sizing: border-box;
+    max-width: min(15rem, 50%, calc(100% - 1rem));
+    padding: 0.12rem 0.3rem;
+    overflow: hidden;
+    color: var(--roomabouts-ink);
+    background: var(--roomabouts-surface-paper);
+    border: 1px solid color-mix(in srgb, var(--roomabouts-line-region) 45%, transparent);
+    border-radius: 2px;
     font-family: ui-serif, Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
     font-size: clamp(0.75rem, 0.68rem + 0.2vw, 0.95rem);
     font-weight: 500;
-    paint-order: stroke;
-    stroke: var(--roomabouts-surface-paper);
-    stroke-width: 3px;
-    stroke-linejoin: round;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transform: translate(-50%, -50%);
     pointer-events: none;
 }
 
@@ -402,9 +410,11 @@ ${FIELD_LEDGER_PROPERTY_DECLARATIONS}
     }
 
     .roomabouts-readonly .roomabouts-track-label,
-    .roomabouts-readonly .roomabouts-station-label {
+    .roomabouts-readonly .roomabouts-station-label,
+    .roomabouts-readonly .roomabouts-zone-label {
         color: HighlightText;
         background: Highlight;
+        border-color: CanvasText;
     }
 
     .roomabouts-readonly :focus-visible {

@@ -62,9 +62,15 @@ class Phase2CardIntegrationTests(unittest.TestCase):
         self.assertIn("t.anonymousAlias", self.renderer)
         self.assertIn("fallenTarget.anonymousAlias", self.ui)
 
-    def test_phase2_card_is_forced_read_only_and_edit_entry_fails_closed(self):
-        self.assertIn("this.config = { ...config, read_only: true }", self.card)
-        self.assertIn("if (!this.config.read_only) this.initLogic()", self.card)
+    def test_phase3_card_is_sanitized_read_only_and_edit_entry_fails_closed(self):
+        self.assertIn(
+            "const nextConfig = sanitizeRoomaboutsReadOnlyConfig(config)",
+            self.card,
+        )
+        self.assertIn("this.config = nextConfig", self.card)
+        self.assertNotIn("this.config = { ...config", self.card)
+        self.assertNotIn("this.ui.render", self.card)
+        self.assertNotIn("this.initLogic()", self.card)
         self.assertIn("const sanitizedHass = this.getMockHass(h)", self.card)
         self.assertIn("this._hass = sanitizedHass", self.card)
         self.assertIn("this.state.rawHass = sanitizedHass", self.card)
@@ -167,12 +173,12 @@ class Phase2CardIntegrationTests(unittest.TestCase):
             self.renderer.index("dotsLayer.insertBefore(trail, dot)"),
         )
 
-    def test_frontend_modules_retain_the_phase2_numeric_manifest_version(self):
+    def test_frontend_modules_share_the_phase3_numeric_manifest_version(self):
         manifest = json.loads((COMPONENT / "manifest.json").read_text(encoding="utf-8"))
         modules = tuple(sorted(WWW.glob("*.js")))
         self.assertEqual(len(modules), 8)
-        self.assertEqual(manifest["version"], "1.4.0")
-        self.assertIn("./roomabouts-presentation.js?v=1.4.0", self.card)
+        self.assertEqual(manifest["version"], "1.5.0")
+        self.assertIn("./roomabouts-presentation.js?v=1.5.0", self.card)
         for source in modules:
             text = source.read_text(encoding="utf-8")
             self.assertNotIn("?v=1.3.12", text, source.name)
